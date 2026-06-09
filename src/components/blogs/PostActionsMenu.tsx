@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { MoreHorizontal, Pin, PinOff, Link2, Flag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { type BlogPost } from "@/data/mockBlog";
 import { api } from "@/lib/api";
+import { invalidateCourseContent } from "@/lib/invalidateAppData";
 import { ReportModal } from "./ReportModal";
 import {
   DropdownMenu,
@@ -14,6 +17,8 @@ import {
 import { useUserStats } from "@/hooks/useUserStats";
 
 export function PostActionsMenu({ post, href }: { post: BlogPost; href: string }) {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const { profile } = useUserStats();
   const isAdmin = post.author.role === "admin";
   const isCurrentUserAdmin = profile.role === "admin";
@@ -49,8 +54,8 @@ export function PostActionsMenu({ post, href }: { post: BlogPost; href: string }
               onClick={async () => {
                 try {
                   await api.pinBlogPost(Number(post.id), false);
+                  await invalidateCourseContent(qc, post.courseCode);
                   toast.success("Post unpinned");
-                  window.location.reload();
                 } catch {
                   toast.error("Could not unpin");
                 }
@@ -64,8 +69,8 @@ export function PostActionsMenu({ post, href }: { post: BlogPost; href: string }
               onClick={async () => {
                 try {
                   await api.pinBlogPost(Number(post.id), true);
+                  await invalidateCourseContent(qc, post.courseCode);
                   toast.success("Post pinned");
-                  window.location.reload();
                 } catch {
                   toast.error("Could not pin");
                 }
@@ -109,8 +114,9 @@ export function PostActionsMenu({ post, href }: { post: BlogPost; href: string }
                 if (!confirm("Are you sure you want to delete this blog post?")) return;
                 try {
                   await api.deleteBlogPost(Number(post.id));
+                  await invalidateCourseContent(qc, post.courseCode);
                   toast.success("Blog post deleted.");
-                  window.location.href = "/blogs";
+                  void navigate({ to: "/blogs" });
                 } catch {
                   toast.error("Could not delete post");
                 }

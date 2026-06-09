@@ -13,6 +13,9 @@ import { encodeCourseCode } from "@/lib/blog";
 import { queryKeys } from "@/lib/queryKeys";
 import { useUserStats } from "@/hooks/useUserStats";
 import { cn } from "@/lib/utils";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { invalidateDoubtsData } from "@/lib/invalidateAppData";
 
 export function DoubtDetailView({ doubtId }: { doubtId: number }) {
   const { profile } = useUserStats();
@@ -27,6 +30,16 @@ export function DoubtDetailView({ doubtId }: { doubtId: number }) {
       const res = await api.getDoubt(doubtId);
       return mapDoubtDetail(res);
     },
+  });
+
+  const { refresh: refreshDoubt, isRefreshing } = usePageRefresh(async () => {
+    const doubt = detailQuery.data;
+    await invalidateDoubtsData(
+      qc,
+      doubt?.courseCode,
+      doubt?.sectionLabel
+    );
+    await detailQuery.refetch();
   });
 
   const postComment = useMutation({
@@ -115,14 +128,17 @@ export function DoubtDetailView({ doubtId }: { doubtId: number }) {
               </span>
             )}
           </div>
-          <Link
-            to="/courses/$courseCode/section"
-            params={{ courseCode: encodeCourseCode(doubt.courseCode) }}
-            search={{ section: doubt.sectionLabel, tab: "doubts", doubtId: String(doubt.id) }}
-            className="text-[10px] font-bold text-muted-foreground hover:text-rose-600 uppercase tracking-wider"
-          >
-            Open in section hub →
-          </Link>
+          <div className="flex items-center gap-2">
+            <RefreshButton onClick={refreshDoubt} loading={isRefreshing || detailQuery.isFetching} />
+            <Link
+              to="/courses/$courseCode/section"
+              params={{ courseCode: encodeCourseCode(doubt.courseCode) }}
+              search={{ section: doubt.sectionLabel, tab: "doubts", doubtId: String(doubt.id) }}
+              className="text-[10px] font-bold text-muted-foreground hover:text-rose-600 uppercase tracking-wider"
+            >
+              Open in section hub →
+            </Link>
+          </div>
         </div>
 
         <div>

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { ArrowLeft, Upload, FileText, CheckCircle, Trash2, Eye } from "lucide-react";
 import { z } from "zod";
 import { TopHeader } from "@/components/dashboard/TopHeader";
@@ -21,6 +21,7 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute("/blogs/new")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },

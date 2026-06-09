@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, GraduationCap, Medal } from "lucide-react";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { TopHeader } from "@/components/dashboard/TopHeader";
 import { MobileTabBar } from "@/components/dashboard/MobileTabBar";
 import { TierBadge } from "@/components/gamification/TierBadge";
@@ -12,8 +12,11 @@ import { api } from "@/lib/api";
 import { encodeCourseCode } from "@/lib/blog";
 import { achievementCaption } from "@/lib/achievementCaptions";
 import { cn } from "@/lib/utils";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 
 export const Route = createFileRoute("/profile/$userId")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -25,12 +28,17 @@ export const Route = createFileRoute("/profile/$userId")({
 
 function ProfilePage() {
   const { userId } = Route.useParams();
-  const { profile: viewer } = useUserStats();
+  const { profile: viewer, refreshProfile } = useUserStats();
   const isOwnProfile = viewer.id === Number(userId);
 
   const profileQuery = useQuery({
     queryKey: ["profile", userId],
     queryFn: () => api.getUserProfile(Number(userId)),
+  });
+
+  const { refresh: refreshProfilePage, isRefreshing } = usePageRefresh(async () => {
+    await profileQuery.refetch();
+    if (isOwnProfile) await refreshProfile();
   });
 
   if (profileQuery.isPending) {
@@ -66,6 +74,9 @@ function ProfilePage() {
     <Shell>
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 space-y-8">
         <header className="flex flex-col sm:flex-row gap-5 items-start">
+          <div className="flex w-full justify-end sm:hidden">
+            <RefreshButton onClick={refreshProfilePage} loading={isRefreshing || profileQuery.isFetching} />
+          </div>
           {hasCustomAvatar(p.avatar_url) ? (
             <img
               src={p.avatar_url}
@@ -81,6 +92,9 @@ function ProfilePage() {
             />
           )}
           <div className="flex-1 min-w-0">
+            <div className="hidden sm:flex justify-end mb-2">
+              <RefreshButton onClick={refreshProfilePage} loading={isRefreshing || profileQuery.isFetching} />
+            </div>
             <div className="flex flex-wrap items-center gap-2.5">
               <TierBadge
                 tierCode={p.tier_code as string | undefined}

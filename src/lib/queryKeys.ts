@@ -36,6 +36,8 @@ export const queryKeys = {
     search: (q: string, courseCode?: string, sectionLabel?: string, status?: string) =>
       ["doubts", "search", q, courseCode ?? "", sectionLabel ?? "", status ?? "all"] as const,
     detail: (doubtId: number) => ["doubts", "detail", doubtId] as const,
+    facultySections: (sectionKeys: string) =>
+      ["doubts", "faculty-sections", sectionKeys] as const,
   },
   section: {
     hub: (courseCode: string, sectionLabel: string) =>
@@ -59,5 +61,12 @@ export const queryKeys = {
   admin: {
     all: ["admin"] as const,
     contentStats: ["admin", "content-stats"] as const,
+    blogs: (courseCode: string, q: string) => ["admin", "blogs", courseCode, q] as const,
+    reports: (entityTypes: string) => ["admin", "reports", entityTypes] as const,
+    enrollmentStudents: ["admin", "enrollment-students"] as const,
+    enrollmentRequests: ["admin", "enrollment-requests"] as const,
+    userEnrollments: (userId: string) => ["admin", "user-enrollments", userId] as const,
   },
+  announcementComments: (announcementId: string) =>
+    ["announcements", "comments", announcementId] as const,
 } as const;

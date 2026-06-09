@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -10,10 +11,15 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { AcademicCalendar } from "./AcademicCalendar";
 import type { SectionDoubt, DoubtAnswer } from "@/data/mockSection";
 import { api } from "@/lib/api";
+import { invalidateDoubtsData } from "@/lib/invalidateAppData";
+import { queryKeys } from "@/lib/queryKeys";
 import { TaskWorkspace } from "@/components/tasks/TaskWorkspace";
 import { DailyEnergyBar } from "@/components/tasks/DailyEnergyBar";
 import { UpcomingEvents } from "./UpcomingEvents";
 import { firstName, timeGreeting } from "@/lib/greeting";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { invalidatePlannerData } from "@/lib/invalidateAppData";
 
 interface FacultyDoubt extends SectionDoubt {
   answerCount: number;
@@ -21,14 +27,13 @@ interface FacultyDoubt extends SectionDoubt {
 }
 
 export function FacultyDashboard() {
+  const qc = useQueryClient();
   const { profile } = useUserStats();
   const [selectedDoubt, setSelectedDoubt] = useState<FacultyDoubt | null>(null);
   const [doubtAnswers, setDoubtAnswers] = useState<DoubtAnswer[]>([]);
   const [answerText, setAnswerText] = useState("");
   const [activeTab, setActiveTab] = useState<"today" | "doubts">("today");
-  const [doubtsRefreshKey, setDoubtsRefreshKey] = useState(0);
 
-  // Active courses based on profile or fallback
   const teachingSections = useMemo(() => {
     if (profile.sections && profile.sections.length > 0) {
       return profile.sections.map((s) => {
@@ -39,10 +44,11 @@ export function FacultyDashboard() {
     return [];
   }, [profile.sections]);
 
-  const [doubtsList, setDoubtsList] = useState<FacultyDoubt[]>([]);
+  const sectionKeys = teachingSections.map((s) => `${s.code}::${s.section}`).join("|");
 
-  useEffect(() => {
-    async function loadDoubts() {
+  const doubtsQuery = useQuery({
+    queryKey: queryKeys.doubts.facultySections(sectionKeys),
+    queryFn: async () => {
       const list: FacultyDoubt[] = [];
       for (const ts of teachingSections) {
         try {
@@ -67,10 +73,23 @@ export function FacultyDashboard() {
         }
       }
       list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      setDoubtsList(list);
-    }
-    void loadDoubts();
-  }, [teachingSections, doubtsRefreshKey]);
+      return list;
+    },
+    enabled: teachingSections.length > 0,
+    refetchInterval: 30_000,
+  });
+
+  const doubtsList = doubtsQuery.data ?? [];
+
+  const refreshDoubts = async () => {
+    await invalidateDoubtsData(qc);
+    await doubtsQuery.refetch();
+  };
+
+  const { refresh: refreshFacultyHub, isRefreshing } = usePageRefresh(async () => {
+    await invalidatePlannerData(qc);
+    await refreshDoubts();
+  });
 
   useEffect(() => {
     if (!selectedDoubt) {
@@ -105,7 +124,7 @@ export function FacultyDashboard() {
       }
     }
     void loadAnswers();
-  }, [selectedDoubt, doubtsRefreshKey]);
+  }, [selectedDoubt, doubtsList]);
 
   useEffect(() => {
     if (selectedDoubt && !doubtsList.some((d) => d.id === selectedDoubt.id)) {
@@ -119,10 +138,11 @@ export function FacultyDashboard() {
 
     try {
       await api.answerDoubt(Number(selectedDoubt.id), { body: answerText.trim() });
+      await invalidateDoubtsData(qc, selectedDoubt.courseCode, selectedDoubt.section);
+      await refreshDoubts();
       toast.success("Verified answer published!");
       setAnswerText("");
       setSelectedDoubt(null);
-      setDoubtsRefreshKey((prev) => prev + 1);
     } catch {
       toast.error("Could not post answer");
     }
@@ -132,8 +152,9 @@ export function FacultyDashboard() {
     if (!selectedDoubt) return;
     try {
       await api.verifyDoubt(Number(selectedDoubt.id));
+      await invalidateDoubtsData(qc, selectedDoubt.courseCode, selectedDoubt.section);
+      await refreshDoubts();
       toast.success("Doubt marked as solved.");
-      setDoubtsRefreshKey((prev) => prev + 1);
       setSelectedDoubt(null);
     } catch {
       toast.error("Could not mark doubt as solved");
@@ -143,8 +164,11 @@ export function FacultyDashboard() {
   const handleVerifyAnswer = async (answerId: string) => {
     try {
       await api.acceptDoubtAnswer(Number(answerId));
+      if (selectedDoubt) {
+        await invalidateDoubtsData(qc, selectedDoubt.courseCode, selectedDoubt.section);
+      }
+      await refreshDoubts();
       toast.success("Accepted as official solution.");
-      setDoubtsRefreshKey((prev) => prev + 1);
     } catch {
       toast.error("Could not verify answer");
     }
@@ -153,16 +177,19 @@ export function FacultyDashboard() {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Faculty Headers */}
-      <header>
-        <p className="text-[11px] uppercase tracking-[0.22em] text-rose-600 font-semibold">
-          Faculty Hub{profile.trimester ? ` · ${profile.trimester}` : ""}
-        </p>
-        <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight mt-2 text-slate-800 leading-[1.05]">
-          {timeGreeting()}, {firstName(profile.name)}.
-        </h1>
-        <p className="text-muted-foreground mt-2 max-w-xl text-sm font-medium">
-          You have {teachingSections.length} active course sections. {doubtsList.length} student doubts are pending resolution in your hub.
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-rose-600 font-semibold">
+            Faculty Hub{profile.trimester ? ` · ${profile.trimester}` : ""}
+          </p>
+          <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight mt-2 text-slate-800 leading-[1.05]">
+            {timeGreeting()}, {firstName(profile.name)}.
+          </h1>
+          <p className="text-muted-foreground mt-2 max-w-xl text-sm font-medium">
+            You have {teachingSections.length} active course sections. {doubtsList.length} student doubts are pending resolution in your hub.
+          </p>
+        </div>
+        <RefreshButton onClick={refreshFacultyHub} loading={isRefreshing} className="shrink-0" />
       </header>
 
       {/* Navigation tabs inside Dashboard */}

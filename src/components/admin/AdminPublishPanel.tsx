@@ -264,6 +264,7 @@ export function AdminPublishPanel({ admin }: { admin: AdminData }) {
       await api.adminUpdateTopic(selectedCourse.code, editingTopicId, {
         title: editingTopicTitle.trim(),
       });
+      invalidateCourseContent(qc, selectedCourse.code);
       toast.success("Topic updated.");
       cancelEditTopic();
       await loadTopics(selectedCourse.code);

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useState, useMemo } from "react";
 import { Search, X, Users, Crown, MoreHorizontal, LogOut, Pin } from "lucide-react";
 import { TopHeader } from "@/components/dashboard/TopHeader";
@@ -16,8 +16,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { useUserStats } from "@/hooks/useUserStats";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 
 export const Route = createFileRoute("/teams")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -39,10 +42,12 @@ function TeamsPage() {
     teams: userTeams,
     invitations,
     loading,
+    refresh,
     respondInvitation,
     leaveTeam,
     togglePin,
   } = useTeamsHub();
+  const { refresh: refreshTeams, isRefreshing } = usePageRefresh(refresh);
   const currentUserEmail = profile.email;
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -148,6 +153,7 @@ function TeamsPage() {
                   View project teams assigned by your instructor, respond to invitations, and collaborate with teammates.
                 </p>
               </div>
+              <RefreshButton onClick={refreshTeams} loading={isRefreshing || loading} className="shrink-0" />
             </div>
 
             {/* Filters Bar */}

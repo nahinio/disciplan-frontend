@@ -1,6 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { requireAuth } from "@/lib/routeAuth";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateCourseContent } from "@/lib/invalidateAppData";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useOfferings } from "@/hooks/useOfferings";
 import { ArrowLeft, Clock, MapPin, User, ListTodo, MessageSquare, BookOpen, Sparkles } from "lucide-react";
 import { TopHeader } from "@/components/dashboard/TopHeader";
@@ -24,6 +28,7 @@ const courseSearchSchema = z.object({
 });
 
 export const Route = createFileRoute("/courses_/$courseCode")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -61,7 +66,12 @@ export const Route = createFileRoute("/courses_/$courseCode")({
 
 function CourseDetailPage() {
   const { code } = Route.useLoaderData();
-  const { offerings, loading, findOffering } = useOfferings();
+  const qc = useQueryClient();
+  const { offerings, loading, findOffering, refresh: refreshOfferings } = useOfferings();
+  const { refresh: refreshCourseHub, isRefreshing } = usePageRefresh(async () => {
+    await invalidateCourseContent(qc, code);
+    await refreshOfferings();
+  });
   const offering = useMemo(
     () => offerings.find((o) => o.course_code === code) ?? findOffering(code, undefined),
     [offerings, findOffering, code]
@@ -128,15 +138,18 @@ function CourseDetailPage() {
                   {offering.credit} cr
                 </span>
               </div>
-              <Link
-                to="/courses/$courseCode/section"
-                params={{ courseCode: encodeCourseCode(offering.course_code) }}
-                search={{ section: offering.section }}
-                className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full bg-[#7d9b76] text-white text-xs font-semibold hover:bg-[#6b8865] transition shadow-sm cursor-pointer"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                Go to Section Hub
-              </Link>
+              <div className="flex items-center gap-2">
+                <RefreshButton onClick={refreshCourseHub} loading={isRefreshing} />
+                <Link
+                  to="/courses/$courseCode/section"
+                  params={{ courseCode: encodeCourseCode(offering.course_code) }}
+                  search={{ section: offering.section }}
+                  className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full bg-[#7d9b76] text-white text-xs font-semibold hover:bg-[#6b8865] transition shadow-sm cursor-pointer"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Go to Section Hub
+                </Link>
+              </div>
             </div>
             <h1 className="font-display text-3xl md:text-5xl font-semibold tracking-tight mt-3 text-slate-800 leading-[1.05]">
               {offering.title}

@@ -34,13 +34,15 @@ Redeploy after changing env vars (Vite bakes `VITE_*` at build time).
 
 ## 4. Update backend CORS
 
-On Render, set `CORS_ORIGINS` to your Vercel URL:
+On Render, set `CORS_ORIGINS` to your Vercel URL (**no trailing slash**):
 
 ```
-https://your-project.vercel.app
+https://disciplan-frontend.vercel.app
 ```
 
-Add multiple origins comma-separated if you use preview deployments.
+A trailing slash (`...vercel.app/`) breaks login — the browser sends the origin without `/`, CORS blocks the response, and the UI shows "Could not sign in" even with valid credentials.
+
+Add multiple origins comma-separated for preview deployments.
 
 ## 5. After deploy
 

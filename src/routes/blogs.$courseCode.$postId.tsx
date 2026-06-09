@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { ArrowLeft, PenSquare, Crown, Pin, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -14,6 +14,7 @@ import { decodeCourseCode, encodeCourseCode } from "@/lib/blog";
 import { useBlogPost } from "@/hooks/useBlogPost";
 
 export const Route = createFileRoute("/blogs/$courseCode/$postId")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },

@@ -6,8 +6,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CourseRow, type RowState } from "./CourseRow";
 import type { ProfileData } from "./OnboardingFlow";
+import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
 import { clearSignupDraft, getSignupDraft } from "@/lib/auth";
+import { invalidateEnrollmentData } from "@/lib/invalidateAppData";
 import { useUserStats } from "@/hooks/useUserStats";
 
 interface Props {
@@ -20,6 +22,7 @@ const newRow = (): RowState => ({ id: `row-${++rid}-${Date.now()}` });
 
 export function RoutineStep({ profile, onBack }: Props) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { refreshProfile } = useUserStats();
   const [rows, setRows] = useState<RowState[]>([newRow()]);
   const [submitting, setSubmitting] = useState(false);
@@ -86,6 +89,7 @@ export function RoutineStep({ profile, onBack }: Props) {
         sections,
       });
       clearSignupDraft();
+      await invalidateEnrollmentData(qc);
       await refreshProfile();
       toast.success(`Welcome, ${profile.name.split(" ")[0] || "friend"}!`, {
         description:

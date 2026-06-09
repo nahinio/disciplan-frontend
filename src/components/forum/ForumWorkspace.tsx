@@ -19,12 +19,16 @@ import type { ForumTag } from "@/data/mockForum";
 import { relativeTime } from "@/lib/blog";
 import { AppSelect } from "@/components/ui/app-select";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { invalidateForumData } from "@/lib/invalidateAppData";
 import { forumTagToType } from "@/lib/mappers";
 import { useQuery } from "@tanstack/react-query";
 import { useForumFeed, useForumThreadDetail, useForumThreads } from "@/hooks/useForumThreads";
 import { useUserStats } from "@/hooks/useUserStats";
 import { ForumReplyThread } from "@/components/forum/ForumReplyThread";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 
 const TAG_STYLES: Record<ForumTag, string> = {
   Doubt: "bg-amber-50 text-amber-800 border-amber-200",
@@ -72,6 +76,7 @@ export function ForumWorkspace({
   courseCode?: string;
 }) {
   const isGlobal = mode === "global";
+  const qc = useQueryClient();
   const { profile } = useUserStats();
   const [courseFilter, setCourseFilter] = useState("");
   const [viewTab, setViewTab] = useState<ViewTab>("all");
@@ -94,9 +99,8 @@ export function ForumWorkspace({
     threadType: apiThreadType,
     mineOnly,
   });
-  const { threads: all, loading, refresh: refreshThreads } = isGlobal
-    ? feedQuery
-    : courseQuery;
+  const threadQuery = isGlobal ? feedQuery : courseQuery;
+  const { threads: all, loading, isError: threadsError, refresh: refreshThreads } = threadQuery;
 
   const coursesQuery = useQuery({
     queryKey: ["courses", "forum-picker"],
@@ -120,6 +124,14 @@ export function ForumWorkspace({
   const selectedNumericId = selectedThreadId ? Number(selectedThreadId) : null;
   const { thread: selectedDetail, replies, refresh: refreshDetail } =
     useForumThreadDetail(selectedNumericId);
+
+  const syncForumCaches = async (course?: string) => {
+    await invalidateForumData(qc, course ?? fixedCourseCode);
+    await refreshThreads();
+    if (selectedNumericId) await refreshDetail();
+  };
+
+  const { refresh: refreshForum, isRefreshing: forumRefreshing } = usePageRefresh(syncForumCaches);
 
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -181,7 +193,7 @@ export function ForumWorkspace({
         await api.voteForumThread(id, "up");
         setUserVotes((prev) => ({ ...prev, [threadId]: true }));
       }
-      await refreshThreads();
+      await syncForumCaches();
     } catch {
       toast.error("Could not register vote");
     }
@@ -213,7 +225,7 @@ export function ForumWorkspace({
         image_file_ids: [],
       });
       resetComposer();
-      await refreshThreads();
+      await syncForumCaches(targetCourse);
       setSelectedThreadId(String(res.id));
       toast.success("Posted to the forum!");
     } catch (err) {
@@ -231,7 +243,7 @@ export function ForumWorkspace({
       await api.deleteForumThread(selectedNumericId);
       setSelectedThreadId(null);
       setIsEditingThread(false);
-      await refreshThreads();
+      await syncForumCaches();
       toast.success("Post deleted.");
     } catch {
       toast.error("Could not delete post.");
@@ -262,8 +274,7 @@ export function ForumWorkspace({
         body: editBody.trim(),
       });
       setIsEditingThread(false);
-      await refreshDetail();
-      await refreshThreads();
+      await syncForumCaches();
       toast.success("Post updated.");
     } catch {
       toast.error("Could not update post.");
@@ -302,6 +313,18 @@ export function ForumWorkspace({
           )}
         >
           <header className="px-5 pt-5 pb-4 border-b border-[#eef2e8] bg-gradient-to-br from-[#fafcf8] to-white shrink-0">
+            {threadsError && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 flex items-center justify-between gap-3">
+                <span>Could not load forum posts. The API may be waking up — try again.</span>
+                <button
+                  type="button"
+                  onClick={() => void refreshThreads()}
+                  className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-amber-700"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-rose-600">
@@ -316,19 +339,22 @@ export function ForumWorkspace({
                     : "Ask doubts, share resources — upvote helpful posts."}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => (isComposerOpen ? resetComposer() : setIsComposerOpen(true))}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-4 h-9 rounded-full text-xs font-semibold transition cursor-pointer shrink-0",
-                  isComposerOpen
-                    ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    : "bg-[#7d9b76] text-white hover:bg-[#6b8865] shadow-sm"
-                )}
-              >
-                <PenSquare className="w-3.5 h-3.5" />
-                {isComposerOpen ? "Cancel" : "New post"}
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <RefreshButton onClick={refreshForum} loading={forumRefreshing || loading} />
+                <button
+                  type="button"
+                  onClick={() => (isComposerOpen ? resetComposer() : setIsComposerOpen(true))}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-4 h-9 rounded-full text-xs font-semibold transition cursor-pointer",
+                    isComposerOpen
+                      ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      : "bg-[#7d9b76] text-white hover:bg-[#6b8865] shadow-sm"
+                  )}
+                >
+                  <PenSquare className="w-3.5 h-3.5" />
+                  {isComposerOpen ? "Cancel" : "New post"}
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 mt-4">

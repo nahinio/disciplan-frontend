@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useOfferings } from "@/hooks/useOfferings";
 import { ArrowLeft, ListFilter, PenSquare } from "lucide-react";
 import { TopHeader } from "@/components/dashboard/TopHeader";
@@ -18,8 +18,11 @@ import {
 import { decodeCourseCode, score } from "@/lib/blog";
 import { useBlogPosts } from "@/hooks/useBlogPosts";
 import { useCatalogue } from "@/hooks/useCatalogue";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 
 export const Route = createFileRoute("/blogs/$courseCode/")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -61,7 +64,8 @@ function CourseBlogPage() {
   const { code } = Route.useLoaderData();
   const { offerings } = useOfferings();
   const { catalogue } = useCatalogue();
-  const { posts: apiPosts, loading } = useBlogPosts(code);
+  const { posts: apiPosts, loading, refresh: refreshBlogPosts } = useBlogPosts(code);
+  const { refresh: refreshCourseBlogs, isRefreshing } = usePageRefresh(refreshBlogPosts);
   const title =
     offerings.find((o) => o.course_code === code)?.title ??
     catalogue.find((c) => c.code === code)?.title ??
@@ -130,6 +134,7 @@ function CourseBlogPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <RefreshButton onClick={refreshCourseBlogs} loading={isRefreshing || loading} />
                 <Link
                   to="/blogs/new"
                   search={{ course: code }}

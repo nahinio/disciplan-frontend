@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { TopHeader } from "@/components/dashboard/TopHeader";
 import { MobileTabBar } from "@/components/dashboard/MobileTabBar";
 import { ProfileGamificationStats } from "@/components/profile/ProfileGamificationStats";
@@ -9,8 +9,11 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { achievementCaption, FAMILY_INTRO } from "@/lib/achievementCaptions";
 import { ArrowLeft, Lock } from "lucide-react";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 
 export const Route = createFileRoute("/achievements")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -40,6 +43,9 @@ function AchievementsPage() {
     queryFn: () => api.getGamificationAchievements(),
     enabled: profile.role === "student",
   });
+  const { refresh: refreshAchievements, isRefreshing } = usePageRefresh(() =>
+    achievementsQuery.refetch()
+  );
 
   const items = achievementsQuery.data?.items ?? [];
   const families = [...new Set(items.map((i) => i.family))];
@@ -57,14 +63,19 @@ function AchievementsPage() {
         </Link>
 
         <header className="space-y-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.22em] text-rose-600 font-semibold">
-              Gamification
-            </p>
-            <h1 className="font-display text-3xl font-semibold tracking-tight mt-1">Achievements</h1>
-            <p className="text-sm text-muted-foreground mt-2">
-              Earn badges by contributing, planning, and helping your classmates.
-            </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-rose-600 font-semibold">
+                Gamification
+              </p>
+              <h1 className="font-display text-3xl font-semibold tracking-tight mt-1">Achievements</h1>
+              <p className="text-sm text-muted-foreground mt-2">
+                Earn badges by contributing, planning, and helping your classmates.
+              </p>
+            </div>
+            {profile.role === "student" && (
+              <RefreshButton onClick={refreshAchievements} loading={isRefreshing || achievementsQuery.isFetching} className="shrink-0" />
+            )}
           </div>
           <ProfileGamificationStats
             tierLabel={profile.tier}

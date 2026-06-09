@@ -37,7 +37,7 @@ import { TopHeader } from "@/components/dashboard/TopHeader";
 import { MobileTabBar } from "@/components/dashboard/MobileTabBar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { decodeCourseCode, encodeCourseCode } from "@/lib/blog";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useOfferings } from "@/hooks/useOfferings";
 import { useSectionHub } from "@/hooks/useSectionHub";
 import { useSectionGrades } from "@/hooks/useSectionGrades";
@@ -79,6 +79,7 @@ const sectionSearchSchema = z.object({
 });
 
 export const Route = createFileRoute("/courses_/$courseCode_/section")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -560,6 +561,7 @@ function CourseSectionPage() {
     try {
       await api.disbandTeam(Number(teamId));
       await refreshTeams();
+      await qc.invalidateQueries({ queryKey: queryKeys.teams.list });
       toast.success(`Team "${teamName}" dissolved.`);
     } catch {
       toast.error("Could not dissolve team");

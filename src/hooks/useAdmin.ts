@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import {
+  invalidateAdminWrites,
+  invalidateCourseContent,
+  invalidateEnrollmentData,
+  invalidateForumData,
+} from "@/lib/invalidateAppData";
 import { initialsFromName, mapCatalogueCourse } from "@/lib/offerings";
 import { mapBlogPostListItem } from "@/lib/mappers";
 import type { CatalogueCourse } from "@/data/mockCatalogue";
@@ -175,6 +182,7 @@ function mapAuditLog(row: Record<string, unknown>): AuditLog {
 }
 
 export function useAdmin() {
+  const qc = useQueryClient();
   const [courses, setCourses] = useState<CatalogueCourse[]>([]);
   const [sections, setSections] = useState<CourseOffering[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -291,6 +299,17 @@ export function useAdmin() {
     void refresh();
   }, [refresh]);
 
+  const syncCatalogCaches = useCallback(
+    async (opts?: { courseCode?: string; enrollment?: boolean; forum?: boolean }) => {
+      await invalidateAdminWrites(qc, {
+        enrollment: opts?.enrollment ?? true,
+        courseCode: opts?.courseCode,
+        forum: opts?.forum,
+      });
+    },
+    [qc]
+  );
+
   const createDepartment = async (name: string, code?: string) => {
     const res = await api.adminCreateDepartment({
       name: name.trim(),
@@ -302,6 +321,7 @@ export function useAdmin() {
         a.code.localeCompare(b.code)
       )
     );
+    await syncCatalogCaches({ enrollment: true });
     return dept;
   };
 
@@ -313,6 +333,7 @@ export function useAdmin() {
         .map((d) => (d.id === dept.id ? dept : d))
         .sort((a, b) => a.code.localeCompare(b.code))
     );
+    await syncCatalogCaches({ enrollment: true });
     return dept;
   };
 
@@ -320,6 +341,7 @@ export function useAdmin() {
     const res = await api.adminDeleteDepartment(departmentId);
     setDepartments((prev) => prev.filter((d) => d.id !== departmentId));
     await refresh();
+    await syncCatalogCaches({ enrollment: true });
     return res;
   };
 
@@ -347,6 +369,7 @@ export function useAdmin() {
       });
     }
     await refresh();
+    await syncCatalogCaches({ courseCode: course.code, enrollment: true });
   };
 
   const createSection = async (
@@ -366,6 +389,7 @@ export function useAdmin() {
         : {}),
     });
     await refresh();
+    await syncCatalogCaches({ courseCode, enrollment: true });
   };
 
   const updateUser = async (
@@ -394,16 +418,19 @@ export function useAdmin() {
   const deleteBlog = async (postId: string) => {
     await api.adminDeleteBlog(Number(postId));
     await refresh();
+    await invalidateCourseContent(qc);
   };
 
   const pinBlog = async (postId: string, pinned: boolean) => {
     await api.pinBlogPost(Number(postId), pinned);
     await refresh();
+    await invalidateCourseContent(qc);
   };
 
   const deactivateCourse = async (courseCode: string) => {
     await api.adminUpdateCourse(courseCode, { is_active: false });
     await refresh();
+    await syncCatalogCaches({ courseCode, enrollment: true });
   };
 
   const suspendUser = async (userId: string) => {
@@ -433,14 +460,20 @@ export function useAdmin() {
 
   const deleteForumThread = async (threadId: number) => {
     await api.adminDeleteForumThread(threadId);
+    await refresh();
+    await invalidateForumData(qc);
   };
 
   const moveForumThread = async (threadId: number, targetCourseCode: string) => {
     await api.adminMoveForumThread(threadId, targetCourseCode);
+    await refresh();
+    await invalidateForumData(qc, targetCourseCode);
   };
 
   const mergeForumThreads = async (threadId: number, targetThreadId: number) => {
     await api.adminMergeForumThreads(threadId, targetThreadId);
+    await refresh();
+    await invalidateForumData(qc);
   };
 
   const updateAnnouncement = async (
@@ -467,11 +500,13 @@ export function useAdmin() {
   ) => {
     await api.adminUpdateSection(sectionId, body);
     await refresh();
+    await syncCatalogCaches({ enrollment: true });
   };
 
   const deactivateSection = async (sectionId: number) => {
     await api.adminDeactivateSection(sectionId);
     await refresh();
+    await syncCatalogCaches({ enrollment: true });
   };
 
   const createBlogPost = async (body: {
@@ -485,13 +520,15 @@ export function useAdmin() {
     tags?: string[];
   }) => {
     const result = await api.createBlogPost(body);
-    void refresh();
+    await refresh();
+    await invalidateCourseContent(qc, body.course_code);
     return result;
   };
 
   const addFacultyRoster = async (name: string, email: string) => {
     await api.adminAddFacultyRoster({ display_name: name, email });
     await refresh();
+    await syncCatalogCaches({ enrollment: true });
   };
 
   const removeFacultyRoster = async (id: string) => {
@@ -521,6 +558,7 @@ export function useAdmin() {
   ) => {
     await api.updateBlogPost(Number(postId), body);
     await refresh();
+    await invalidateCourseContent(qc);
   };
 
   return {

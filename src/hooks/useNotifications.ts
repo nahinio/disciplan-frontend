@@ -127,10 +127,9 @@ export function useNotifications() {
     }
   };
 
-  const deleteNotification = (id: string) => {
-    qc.setQueryData<Notification[]>(queryKeys.notifications, (prev) =>
-      (prev ?? []).filter((n) => n.id !== id)
-    );
+  const deleteNotification = async (id: string) => {
+    await markAsRead(id);
+    await invalidate();
   };
 
   const toggleReadStatus = async (id: string) => {
@@ -146,9 +145,9 @@ export function useNotifications() {
     qc.setQueryData<number>([...queryKeys.notifications, "unread"], (c) => (c ?? 0) + 1);
   };
 
-  const clearAll = () => {
-    qc.setQueryData(queryKeys.notifications, []);
-    qc.setQueryData([...queryKeys.notifications, "unread"], 0);
+  const clearAll = async () => {
+    await markAllAsRead();
+    await invalidate();
   };
 
   return {

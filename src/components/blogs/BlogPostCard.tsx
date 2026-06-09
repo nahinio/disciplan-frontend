@@ -84,6 +84,7 @@ export function BlogPostCard({ post }: { post: BlogPost }) {
         <VoteBar
           target={post}
           postId={Number.isFinite(Number(post.id)) ? Number(post.id) : undefined}
+          courseCode={post.courseCode}
           initialVote={post.viewerVote}
           commentCount={post.commentCount}
           shareUrl={href}

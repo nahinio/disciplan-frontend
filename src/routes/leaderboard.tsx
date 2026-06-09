@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { RefreshCw, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { TierBadge } from "@/components/gamification/TierBadge";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { TopHeader } from "@/components/dashboard/TopHeader";
 import { MobileTabBar } from "@/components/dashboard/MobileTabBar";
 import { useUserStats } from "@/hooks/useUserStats";
@@ -11,6 +13,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/leaderboard")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -33,6 +36,7 @@ function LeaderboardPage() {
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
+  const { refresh: refreshLeaderboard, isRefreshing } = usePageRefresh(() => lbQuery.refetch());
 
   const items = lbQuery.data?.items ?? [];
   const myRank = lbQuery.data?.my_rank;
@@ -55,15 +59,10 @@ function LeaderboardPage() {
               Rankings refresh automatically when XP is earned.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void lbQuery.refetch()}
-            disabled={lbQuery.isFetching}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-xs font-bold hover:bg-muted transition disabled:opacity-50"
-          >
-            <RefreshCw className={cn("w-3.5 h-3.5", lbQuery.isFetching && "animate-spin")} />
-            Refresh
-          </button>
+          <RefreshButton
+            onClick={refreshLeaderboard}
+            loading={isRefreshing || lbQuery.isFetching}
+          />
         </header>
 
         <div className="flex gap-1 bg-muted p-1 rounded-full w-fit">

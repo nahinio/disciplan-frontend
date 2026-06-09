@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { TopHeader } from "@/components/dashboard/TopHeader";
 import { MobileTabBar } from "@/components/dashboard/MobileTabBar";
 import { DoubtDetailView } from "@/components/doubts/DoubtDetailView";
 
 export const Route = createFileRoute("/doubts/$doubtId")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },

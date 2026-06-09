@@ -38,7 +38,13 @@ export function useForumFeed(options: {
     });
   }, [qc, courseKey, typeKey, sort, mineOnly]);
 
-  return { threads: query.data ?? [], loading: query.isPending, refresh };
+  return {
+    threads: query.data ?? [],
+    loading: query.isPending,
+    isError: query.isError,
+    refresh,
+    refetch: query.refetch,
+  };
 }
 
 export function useForumThreads(
@@ -69,7 +75,13 @@ export function useForumThreads(
     });
   }, [qc, courseCode, typeKey, mineOnly]);
 
-  return { threads: query.data ?? [], loading: query.isPending, refresh };
+  return {
+    threads: query.data ?? [],
+    loading: query.isPending,
+    isError: query.isError,
+    refresh,
+    refetch: query.refetch,
+  };
 }
 
 export function useForumThreadDetail(threadId: number | null) {

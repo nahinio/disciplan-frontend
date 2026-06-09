@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useState, useMemo, useCallback } from "react";
 import {
   ArrowLeft,
@@ -44,6 +44,7 @@ const teamSearchSchema = z.object({
 });
 
 export const Route = createFileRoute("/teams_/$teamId")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },

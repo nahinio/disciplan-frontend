@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { TopHeader } from "@/components/dashboard/TopHeader";
@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/settings")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },

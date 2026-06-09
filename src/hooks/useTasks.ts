@@ -65,7 +65,7 @@ export function useTasks() {
     enabled,
     retry: 1,
     staleTime: 30_000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 
   const energyQuery = useQuery({
@@ -77,32 +77,53 @@ export function useTasks() {
     enabled,
   });
 
-  const invalidateTasks = useCallback(() => {
-    invalidatePlannerData(qc);
+  const invalidateTasks = useCallback(async () => {
+    await invalidatePlannerData(qc);
   }, [qc]);
+
+  const patchTaskInCaches = useCallback(
+    (id: number, patch: Partial<UserTask>) => {
+      const apply = (list: UserTask[] | undefined) =>
+        list?.map((t) => (t.id === id ? { ...t, ...patch } : t));
+      qc.setQueryData(queryKeys.tasks.all, apply);
+      qc.setQueryData(queryKeys.tasks.today, apply);
+    },
+    [qc]
+  );
 
   const setEnergyMutation = useMutation({
     mutationFn: (level: EnergyLevel) => api.setDailyEnergy(level),
     onSuccess: (_data, level) => {
       qc.setQueryData(queryKeys.tasks.energy, level);
-      invalidateTasks();
+      void invalidateTasks();
     },
   });
 
   const createTaskMutation = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.createTask(body),
-    onSuccess: invalidateTasks,
+    onSuccess: () => void invalidateTasks(),
   });
 
   const updateTaskMutation = useMutation({
     mutationFn: ({ id, body }: { id: number; body: Record<string, unknown> }) =>
       api.updateTask(id, body),
-    onSuccess: invalidateTasks,
+    onMutate: async ({ id, body }) => {
+      const patch: Partial<UserTask> = {};
+      if ("completed" in body) patch.is_completed = Boolean(body.completed);
+      if ("completion_percent" in body)
+        patch.completion_percent = Number(body.completion_percent);
+      if ("completed_portion_percent" in body)
+        patch.completed_portion_percent = Number(body.completed_portion_percent);
+      if ("is_skipped" in body || "skipped" in body)
+        patch.is_skipped = Boolean(body.is_skipped ?? body.skipped);
+      if (Object.keys(patch).length) patchTaskInCaches(id, patch);
+    },
+    onSettled: () => void invalidateTasks(),
   });
 
   const deleteTaskMutation = useMutation({
     mutationFn: (id: number) => api.deleteTask(id),
-    onSuccess: invalidateTasks,
+    onSuccess: () => void invalidateTasks(),
   });
 
   const refresh = useCallback(async () => {

@@ -1,11 +1,20 @@
-import { BookOpen, Layers, Users, Megaphone, RefreshCw } from "lucide-react";
+import { BookOpen, Layers, Users, Megaphone } from "lucide-react";
 import type { useAdmin } from "@/hooks/useAdmin";
-import { AdminLoading, AdminPageHeader, EmptyState, StatCard, adminBtnSecondary, adminCard } from "./admin-ui";
+import { AdminLoading, AdminPageHeader, EmptyState, StatCard, adminCard } from "./admin-ui";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateAdminWrites } from "@/lib/invalidateAppData";
 
 type AdminData = ReturnType<typeof useAdmin>;
 
 export function AdminOverviewPanel({ admin }: { admin: AdminData }) {
+  const qc = useQueryClient();
   const { activity, auditLogs, topCourses, loading, refresh } = admin;
+  const { refresh: refreshAdmin, isRefreshing } = usePageRefresh(async () => {
+    await refresh();
+    await invalidateAdminWrites(qc, { enrollment: true, forum: true });
+  });
 
   if (loading && !activity) return <AdminLoading />;
 
@@ -15,12 +24,7 @@ export function AdminOverviewPanel({ admin }: { admin: AdminData }) {
         eyebrow="Analytics & oversight"
         title="System overview"
         description="Platform health, audit trail, and engagement at a glance."
-        actions={
-          <button type="button" onClick={() => void refresh()} className={adminBtnSecondary}>
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
-        }
+        actions={<RefreshButton onClick={refreshAdmin} loading={isRefreshing} />}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

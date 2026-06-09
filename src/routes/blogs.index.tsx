@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useOfferings } from "@/hooks/useOfferings";
 import { useCatalogue } from "@/hooks/useCatalogue";
 import { PenSquare, Search } from "lucide-react";
@@ -8,8 +8,13 @@ import { TopHeader } from "@/components/dashboard/TopHeader";
 import { MobileTabBar } from "@/components/dashboard/MobileTabBar";
 import { CourseTile } from "@/components/blogs/CourseTile";
 import { useUserStats } from "@/hooks/useUserStats";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateEnrollmentData } from "@/lib/invalidateAppData";
 
 export const Route = createFileRoute("/blogs/")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -32,9 +37,14 @@ export const Route = createFileRoute("/blogs/")({
 
 function BlogsIndex() {
   const [q, setQ] = useState("");
+  const qc = useQueryClient();
   const { profile } = useUserStats();
-  const { offerings } = useOfferings();
-  const { catalogue, loading } = useCatalogue();
+  const { offerings, refresh: refreshOfferings } = useOfferings();
+  const { catalogue, loading, refresh: refreshCatalogue } = useCatalogue();
+  const { refresh: refreshBlogsIndex, isRefreshing } = usePageRefresh(async () => {
+    await invalidateEnrollmentData(qc);
+    await Promise.all([refreshOfferings(), refreshCatalogue()]);
+  });
 
   const enrolledCodes = useMemo(
     () => new Set(offerings.map((c) => c.course_code)),
@@ -69,18 +79,21 @@ function BlogsIndex() {
                 Notes, breakdowns, and announcements — by students and faculty, organized by course.
               </p>
             </div>
-            <Link
-              to="/blogs/new"
-              search={
-                offerings[0]?.course_code
-                  ? { course: offerings[0].course_code }
-                  : undefined
-              }
-              className="inline-flex items-center gap-2 px-4 h-10 rounded-full bg-rose-600 text-white text-sm font-medium hover:bg-rose-700 transition shadow-sm"
-            >
-              <PenSquare className="w-4 h-4" />
-              Create blog post
-            </Link>
+            <div className="flex items-center gap-2">
+              <RefreshButton onClick={refreshBlogsIndex} loading={isRefreshing || loading} />
+              <Link
+                to="/blogs/new"
+                search={
+                  offerings[0]?.course_code
+                    ? { course: offerings[0].course_code }
+                    : undefined
+                }
+                className="inline-flex items-center gap-2 px-4 h-10 rounded-full bg-rose-600 text-white text-sm font-medium hover:bg-rose-700 transition shadow-sm"
+              >
+                <PenSquare className="w-4 h-4" />
+                Create blog post
+              </Link>
+            </div>
           </header>
 
           <section className="space-y-4">

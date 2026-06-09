@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidateEnrollmentData } from "@/lib/invalidateAppData";
+import { queryKeys } from "@/lib/queryKeys";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { useUserStats } from "@/hooks/useUserStats";
 import {
   Check,
   Clock,
@@ -80,14 +86,16 @@ function mapRequest(row: Record<string, unknown>): EnrollmentRequest {
 }
 
 export function AdminEnrollmentsPanel({ admin }: { admin: AdminData }) {
+  const qc = useQueryClient();
+  const { refreshProfile } = useUserStats();
   const { sections, loading: adminLoading } = admin;
-  const [students, setStudents] = useState<StudentSummary[]>([]);
-  const [requests, setRequests] = useState<EnrollmentRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const syncEnrollmentCaches = useCallback(async () => {
+    await invalidateEnrollmentData(qc);
+    await refreshProfile();
+  }, [qc, refreshProfile]);
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
-  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
   const [addCourse, setAddCourse] = useState("");
   const [addSection, setAddSection] = useState("");
   const [adding, setAdding] = useState(false);
@@ -101,55 +109,54 @@ export function AdminEnrollmentsPanel({ admin }: { admin: AdminData }) {
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const studentsQuery = useQuery({
+    queryKey: queryKeys.admin.enrollmentStudents,
+    queryFn: async () => {
+      const res = await api.adminListStudentsEnrollmentSummary();
+      return (res.items as Record<string, unknown>[]).map(mapStudent);
+    },
+  });
+
+  const requestsQuery = useQuery({
+    queryKey: queryKeys.admin.enrollmentRequests,
+    queryFn: async () => {
+      const res = await api.adminListEnrollmentRequests("pending");
+      return (res.items as Record<string, unknown>[]).map(mapRequest);
+    },
+  });
+
+  const enrollmentsQuery = useQuery({
+    queryKey: queryKeys.admin.userEnrollments(selectedStudentId ?? ""),
+    queryFn: async () => {
+      const res = await api.adminListUserEnrollments(Number(selectedStudentId));
+      return (res.items as Record<string, unknown>[]).map((r) => ({
+        enrollment_id: Number(r.enrollment_id),
+        course_code: String(r.course_code ?? ""),
+        course_title: String(r.course_title ?? ""),
+        section_label: String(r.section_label ?? ""),
+        section_key: String(r.section_key ?? ""),
+      }));
+    },
+    enabled: Boolean(selectedStudentId),
+  });
+
+  const students = studentsQuery.data ?? [];
+  const requests = requestsQuery.data ?? [];
+  const enrollments = enrollmentsQuery.data ?? [];
+  const loading = studentsQuery.isPending || requestsQuery.isPending;
+  const loadingEnrollments = enrollmentsQuery.isPending;
+
   const refreshAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [studentsRes, requestsRes] = await Promise.all([
-        api.adminListStudentsEnrollmentSummary(),
-        api.adminListEnrollmentRequests("pending"),
-      ]);
-      setStudents(
-        (studentsRes.items as Record<string, unknown>[]).map(mapStudent)
-      );
-      setRequests(
-        (requestsRes.items as Record<string, unknown>[]).map(mapRequest)
-      );
-    } catch {
-      toast.error("Could not load enrollment data.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: queryKeys.admin.enrollmentStudents }),
+      qc.invalidateQueries({ queryKey: queryKeys.admin.enrollmentRequests }),
+      selectedStudentId
+        ? qc.invalidateQueries({ queryKey: queryKeys.admin.userEnrollments(selectedStudentId) })
+        : Promise.resolve(),
+    ]);
+  }, [qc, selectedStudentId]);
 
-  useEffect(() => {
-    void refreshAll();
-  }, [refreshAll]);
-
-  const loadStudentEnrollments = useCallback(async (userId: string) => {
-    setLoadingEnrollments(true);
-    try {
-      const res = await api.adminListUserEnrollments(Number(userId));
-      setEnrollments(
-        (res.items as Record<string, unknown>[]).map((r) => ({
-          enrollment_id: Number(r.enrollment_id),
-          course_code: String(r.course_code ?? ""),
-          course_title: String(r.course_title ?? ""),
-          section_label: String(r.section_label ?? ""),
-          section_key: String(r.section_key ?? ""),
-        }))
-      );
-    } catch {
-      toast.error("Could not load student enrollments.");
-      setEnrollments([]);
-    } finally {
-      setLoadingEnrollments(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (selectedStudentId) void loadStudentEnrollments(selectedStudentId);
-    else setEnrollments([]);
-  }, [selectedStudentId, loadStudentEnrollments]);
+  const { refresh: refreshPage, isRefreshing } = usePageRefresh(refreshAll);
 
   const filteredStudents = useMemo(() => {
     const q = studentSearch.toLowerCase();
@@ -182,7 +189,7 @@ export function AdminEnrollmentsPanel({ admin }: { admin: AdminData }) {
       await api.adminApproveEnrollmentRequest(Number(id));
       toast.success("Request approved — student enrolled.");
       await refreshAll();
-      if (selectedStudentId) await loadStudentEnrollments(selectedStudentId);
+      await syncEnrollmentCaches();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not approve.");
     }
@@ -193,6 +200,7 @@ export function AdminEnrollmentsPanel({ admin }: { admin: AdminData }) {
       await api.adminRejectEnrollmentRequest(Number(id));
       toast.success("Request rejected.");
       await refreshAll();
+      await syncEnrollmentCaches();
     } catch {
       toast.error("Could not reject request.");
     }
@@ -220,7 +228,7 @@ export function AdminEnrollmentsPanel({ admin }: { admin: AdminData }) {
       setAddCourse("");
       setAddSection("");
       await refreshAll();
-      await loadStudentEnrollments(selectedStudentId);
+      await syncEnrollmentCaches();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not add section.");
     } finally {
@@ -238,7 +246,7 @@ export function AdminEnrollmentsPanel({ admin }: { admin: AdminData }) {
       );
       toast.success("Enrollment removed.");
       await refreshAll();
-      await loadStudentEnrollments(selectedStudentId);
+      await syncEnrollmentCaches();
     } catch {
       toast.error("Could not remove enrollment.");
     }
@@ -254,7 +262,7 @@ export function AdminEnrollmentsPanel({ admin }: { admin: AdminData }) {
         `Import complete: ${result.enrolled} enrolled, ${result.skipped_already_enrolled} skipped, ${result.failed} failed.`
       );
       await refreshAll();
-      if (selectedStudentId) await loadStudentEnrollments(selectedStudentId);
+      await syncEnrollmentCaches();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "CSV import failed.");
     } finally {
@@ -271,6 +279,7 @@ export function AdminEnrollmentsPanel({ admin }: { admin: AdminData }) {
         eyebrow="Student enrollments"
         title="Section allocation"
         description="Review student requests, assign sections manually, or bulk-import from CSV."
+        actions={<RefreshButton onClick={refreshPage} loading={isRefreshing} />}
       />
 
       {requests.length > 0 && (

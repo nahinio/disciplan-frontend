@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateEnrollmentData } from "@/lib/invalidateAppData";
 import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
@@ -31,6 +33,7 @@ interface EnrollmentRequestRow {
 }
 
 export function RequestSectionDialog() {
+  const qc = useQueryClient();
   const { profile, refreshProfile } = useUserStats();
   const [open, setOpen] = useState(false);
   const [offerings, setOfferings] = useState<CourseOffering[]>([]);
@@ -124,6 +127,7 @@ export function RequestSectionDialog() {
       setSectionLabel("");
       setMessage("");
       await loadData();
+      await invalidateEnrollmentData(qc);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not submit request.");
     } finally {
@@ -136,6 +140,7 @@ export function RequestSectionDialog() {
       await api.cancelEnrollmentRequest(id);
       toast.success("Request cancelled.");
       await loadData();
+      await invalidateEnrollmentData(qc);
     } catch {
       toast.error("Could not cancel request.");
     }

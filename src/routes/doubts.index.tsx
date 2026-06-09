@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { Search, HelpCircle } from "lucide-react";
 import { TopHeader } from "@/components/dashboard/TopHeader";
 import { MobileTabBar } from "@/components/dashboard/MobileTabBar";
@@ -9,8 +9,13 @@ import { AppSelect } from "@/components/ui/app-select";
 import { useDoubtsSearch, type DoubtSearchStatus } from "@/hooks/useDoubtsSearch";
 import { useOfferings } from "@/hooks/useOfferings";
 import { useUserStats } from "@/hooks/useUserStats";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateDoubtsData } from "@/lib/invalidateAppData";
 
 export const Route = createFileRoute("/doubts/")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -27,6 +32,7 @@ export const Route = createFileRoute("/doubts/")({
 });
 
 function DoubtsIndex() {
+  const qc = useQueryClient();
   const { profile } = useUserStats();
   const { offerings } = useOfferings();
   const [inputQ, setInputQ] = useState("");
@@ -45,10 +51,15 @@ function DoubtsIndex() {
 
   const [courseFilter, setCourseFilter] = useState("");
 
-  const { data, isPending, isError } = useDoubtsSearch({
+  const doubtsQuery = useDoubtsSearch({
     q: debouncedQ,
     courseCode: courseFilter || undefined,
     status,
+  });
+  const { data, isPending, isError, refetch } = doubtsQuery;
+  const { refresh: refreshDoubts, isRefreshing } = usePageRefresh(async () => {
+    await invalidateDoubtsData(qc, courseFilter || undefined);
+    await refetch();
   });
 
   const items = data?.items ?? [];
@@ -74,18 +85,21 @@ function DoubtsIndex() {
       <TopHeader />
       <main className="flex-1 overflow-y-auto no-scrollbar pb-20 md:pb-0">
         <div className="max-w-5xl mx-auto px-5 md:px-8 py-8 space-y-8">
-          <header>
-            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-              Knowledge base{profile.trimester ? ` · ${profile.trimester}` : ""}
-            </p>
-            <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight mt-2 flex items-center gap-3">
-              <HelpCircle className="w-9 h-9 text-rose-600 shrink-0" />
-              Doubts
-            </h1>
-            <p className="text-muted-foreground mt-2 max-w-2xl">
-              Search questions and faculty-verified answers from your courses. Find similar problems
-              before posting a new doubt in your section hub.
-            </p>
+          <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                Knowledge base{profile.trimester ? ` · ${profile.trimester}` : ""}
+              </p>
+              <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight mt-2 flex items-center gap-3">
+                <HelpCircle className="w-9 h-9 text-rose-600 shrink-0" />
+                Doubts
+              </h1>
+              <p className="text-muted-foreground mt-2 max-w-2xl">
+                Search questions and faculty-verified answers from your courses. Find similar problems
+                before posting a new doubt in your section hub.
+              </p>
+            </div>
+            <RefreshButton onClick={refreshDoubts} loading={isRefreshing || isPending} className="shrink-0" />
           </header>
 
           <section className="space-y-4">

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, MessageSquare, Share2 } from "lucide-react";
 import { score } from "@/lib/blog";
 import { api } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
 
 const TACTILE =
@@ -39,9 +41,11 @@ export function VoteBar({
   shareSlot = "inline",
   variant = "pill",
   onVoteChange,
+  courseCode,
 }: {
   target: VoteCounts;
   postId?: number;
+  courseCode?: string;
   initialVote?: "up" | "down" | null;
   commentCount?: number;
   onComment?: () => void;
@@ -51,6 +55,7 @@ export function VoteBar({
   variant?: "pill" | "inline";
   onVoteChange?: () => void;
 }) {
+  const qc = useQueryClient();
   const [counts, setCounts] = useState<VoteCounts>({
     upvotes: target.upvotes,
     downvotes: target.downvotes,
@@ -85,6 +90,9 @@ export function VoteBar({
           : null;
       setCounts({ upvotes, downvotes });
       setMy(viewerVote);
+      if (courseCode) {
+        void qc.invalidateQueries({ queryKey: queryKeys.blogs.list(courseCode) });
+      }
       onVoteChange?.();
     } catch {
       toast.error("Could not register vote");

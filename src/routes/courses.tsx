@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useState } from "react";
 import { Search, LayoutGrid, List, X } from "lucide-react";
 import { TopHeader } from "@/components/dashboard/TopHeader";
@@ -11,8 +11,13 @@ import { cn } from "@/lib/utils";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useOfferings } from "@/hooks/useOfferings";
 import { RequestSectionDialog } from "@/components/courses/RequestSectionDialog";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateEnrollmentData } from "@/lib/invalidateAppData";
 
 export const Route = createFileRoute("/courses")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -35,8 +40,13 @@ export const Route = createFileRoute("/courses")({
 });
 
 function CoursesPage() {
+  const qc = useQueryClient();
   const { profile } = useUserStats();
-  const { offerings: currentOfferings, loading } = useOfferings();
+  const { offerings: currentOfferings, loading, refresh: refreshOfferings } = useOfferings();
+  const { refresh: refreshCourses, isRefreshing } = usePageRefresh(async () => {
+    await invalidateEnrollmentData(qc);
+    await refreshOfferings();
+  });
   const prefs = useAllCoursePrefs();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDay, setSelectedDay] = useState<"All" | "Sun" | "Mon" | "Tue" | "Wed" | "Thu">("All");
@@ -83,7 +93,10 @@ function CoursesPage() {
                 }
               </p>
               </div>
-              {profile.role === "student" && <RequestSectionDialog />}
+              <div className="flex items-center gap-2 shrink-0">
+                <RefreshButton onClick={refreshCourses} loading={isRefreshing} />
+                {profile.role === "student" && <RequestSectionDialog />}
+              </div>
             </header>
 
             {/* Controls Bar */}

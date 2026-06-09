@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useOfferings } from "@/hooks/useOfferings";
 import { useSectionHub } from "@/hooks/useSectionHub";
 import {
@@ -28,6 +28,8 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 import type { ExamAssignment, StudentSubmission } from "@/types/exam";
 
 const submissionsSearchSchema = z.object({
@@ -36,6 +38,7 @@ const submissionsSearchSchema = z.object({
 });
 
 export const Route = createFileRoute("/courses_/$courseCode_/submissions")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -65,6 +68,7 @@ function SubmissionsPage() {
 
   const hub = useSectionHub(code, sectionLabel);
   const exams = hub.exams;
+  const { refresh: refreshSubmissions, isRefreshing } = usePageRefresh(hub.refresh);
 
   const exam = useMemo(() => {
     if (examId) {
@@ -251,12 +255,17 @@ function SubmissionsPage() {
               </span>
             </div>
             
-            <h1 className="font-display text-3xl font-bold tracking-tight mt-1 text-slate-800">
-              Submissions & Grading
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Portal: <span className="font-bold text-slate-700">{exam.title}</span> (Max Marks: {exam.maxMarks})
-            </p>
+            <div className="flex items-start justify-between gap-4 mt-1">
+              <div>
+                <h1 className="font-display text-3xl font-bold tracking-tight text-slate-800">
+                  Submissions & Grading
+                </h1>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Portal: <span className="font-bold text-slate-700">{exam.title}</span> (Max Marks: {exam.maxMarks})
+                </p>
+              </div>
+              <RefreshButton onClick={refreshSubmissions} loading={isRefreshing || hub.loading} />
+            </div>
           </div>
 
           {/* Grid Layout */}

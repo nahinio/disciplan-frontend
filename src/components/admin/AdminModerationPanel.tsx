@@ -1,7 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { Flag, Pencil, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { invalidateCourseContent, invalidateForumData } from "@/lib/invalidateAppData";
 import { mapBlogPostDetail } from "@/lib/mappers";
 import type { BlogPost } from "@/data/mockBlog";
 import type { useAdmin } from "@/hooks/useAdmin";
@@ -48,84 +53,75 @@ interface ContentReport {
 }
 
 export function AdminModerationPanel({ admin }: { admin: AdminData }) {
+  const qc = useQueryClient();
   const { courses, loading, deleteBlog, updateBlog } = admin;
   const [tab, setTab] = useState<Tab>("blogs");
 
   const [filterCourse, setFilterCourse] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
-  const [listBlogs, setListBlogs] = useState<BlogPost[]>([]);
-  const [listLoading, setListLoading] = useState(false);
+  const [appliedQuery, setAppliedQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editExcerpt, setEditExcerpt] = useState("");
   const [editBody, setEditBody] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
-  const [reports, setReports] = useState<ContentReport[]>([]);
-  const [reportsLoading, setReportsLoading] = useState(false);
   const [resolvingId, setResolvingId] = useState<number | null>(null);
 
-  const loadBlogs = () => {
-    setListLoading(true);
-    void api
-      .adminListBlogs({
+  const activeTabMeta = TABS.find((x) => x.id === tab);
+  const reportEntityTypes = activeTabMeta?.entityTypes?.join(",") ?? "";
+
+  const blogsQuery = useQuery({
+    queryKey: queryKeys.admin.blogs(filterCourse, appliedQuery),
+    queryFn: async () => {
+      const res = await api.adminListBlogs({
         course_code: filterCourse || undefined,
-        q: filterQuery.trim() || undefined,
+        q: appliedQuery.trim() || undefined,
         limit: 100,
-      })
-      .then((res) => {
-        setListBlogs(
-          (res.items as Record<string, unknown>[]).map((row) => mapBlogPostDetail(row))
-        );
-      })
-      .catch(() => {
-        setListBlogs([]);
-        toast.error("Could not load blogs.");
-      })
-      .finally(() => setListLoading(false));
-  };
+      });
+      return (res.items as Record<string, unknown>[]).map((row) => mapBlogPostDetail(row));
+    },
+    enabled: tab === "blogs",
+  });
 
-  const loadReports = (entityTypes: string[]) => {
-    setReportsLoading(true);
-    void api
-      .adminListContentReports({
+  const reportsQuery = useQuery({
+    queryKey: queryKeys.admin.reports(reportEntityTypes),
+    queryFn: async () => {
+      const res = await api.adminListContentReports({
         status: "open",
-        entity_types: entityTypes.join(","),
+        entity_types: reportEntityTypes,
         limit: 100,
-      })
-      .then((res) => {
-        setReports(
-          (res.items as Record<string, unknown>[]).map((r) => ({
-            id: Number(r.id),
-            entity_id: Number(r.entity_id),
-            entity_type_code: String(r.entity_type_code),
-            reason_code: String(r.reason_code),
-            reason_label: String(r.reason_label ?? r.reason_code),
-            notes: r.notes != null ? String(r.notes) : null,
-            created_at: String(r.created_at ?? ""),
-            reporter_name: String(r.reporter_name ?? "Unknown"),
-            preview_title: r.preview_title ? String(r.preview_title) : undefined,
-            preview_body: r.preview_body ? String(r.preview_body) : undefined,
-            course_code: r.course_code ? String(r.course_code) : undefined,
-            content_author: r.content_author ? String(r.content_author) : undefined,
-          }))
-        );
-      })
-      .catch(() => {
-        setReports([]);
-        toast.error("Could not load reports.");
-      })
-      .finally(() => setReportsLoading(false));
-  };
+      });
+      return (res.items as Record<string, unknown>[]).map((r) => ({
+        id: Number(r.id),
+        entity_id: Number(r.entity_id),
+        entity_type_code: String(r.entity_type_code),
+        reason_code: String(r.reason_code),
+        reason_label: String(r.reason_label ?? r.reason_code),
+        notes: r.notes != null ? String(r.notes) : null,
+        created_at: String(r.created_at ?? ""),
+        reporter_name: String(r.reporter_name ?? "Unknown"),
+        preview_title: r.preview_title ? String(r.preview_title) : undefined,
+        preview_body: r.preview_body ? String(r.preview_body) : undefined,
+        course_code: r.course_code ? String(r.course_code) : undefined,
+        content_author: r.content_author ? String(r.content_author) : undefined,
+      })) as ContentReport[];
+    },
+    enabled: tab !== "blogs" && Boolean(reportEntityTypes),
+  });
 
-  useEffect(() => {
-    if (tab === "blogs") loadBlogs();
-    else {
-      const t = TABS.find((x) => x.id === tab);
-      if (t?.entityTypes) loadReports(t.entityTypes);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  const listBlogs = blogsQuery.data ?? [];
+  const listLoading = blogsQuery.isPending;
+  const reports = reportsQuery.data ?? [];
+  const reportsLoading = reportsQuery.isPending;
+
+  const refreshModeration = async () => {
+    if (tab === "blogs") await blogsQuery.refetch();
+    else await reportsQuery.refetch();
+  };
+  const { refresh: refreshPage, isRefreshing } = usePageRefresh(refreshModeration);
+
+  const applyBlogFilters = () => setAppliedQuery(filterQuery);
 
   const resolveReport = async (
     report: ContentReport,
@@ -135,9 +131,15 @@ export function AdminModerationPanel({ admin }: { admin: AdminData }) {
     setResolvingId(report.id);
     try {
       await api.adminResolveContentReport(report.id, { action, delete_content: deleteContent });
+      if (deleteContent) {
+        if (report.entity_type_code === "forum_thread") {
+          await invalidateForumData(qc, report.course_code);
+        } else {
+          await invalidateCourseContent(qc, report.course_code);
+        }
+      }
       toast.success(deleteContent ? "Content removed and report closed." : `Report ${action}.`);
-      const t = TABS.find((x) => x.id === tab);
-      if (t?.entityTypes) loadReports(t.entityTypes);
+      await reportsQuery.refetch();
     } catch {
       toast.error("Could not update report.");
     } finally {
@@ -159,7 +161,7 @@ export function AdminModerationPanel({ admin }: { admin: AdminData }) {
       });
       toast.success("Blog updated.");
       setEditingId(null);
-      loadBlogs();
+      await blogsQuery.refetch();
     } catch {
       toast.error("Could not update blog.");
     } finally {
@@ -175,6 +177,7 @@ export function AdminModerationPanel({ admin }: { admin: AdminData }) {
         eyebrow="Trust & safety"
         title="Moderation"
         description="Review all blogs and act on reported comments and forum content."
+        actions={<RefreshButton onClick={refreshPage} loading={isRefreshing} />}
       />
 
       <div className="flex gap-2 flex-wrap">
@@ -212,9 +215,9 @@ export function AdminModerationPanel({ admin }: { admin: AdminData }) {
               placeholder="Search title or excerpt…"
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && loadBlogs()}
+              onKeyDown={(e) => e.key === "Enter" && applyBlogFilters()}
             />
-            <button type="button" className={adminBtnSecondary + " h-10 text-xs"} onClick={loadBlogs}>
+            <button type="button" className={adminBtnSecondary + " h-10 text-xs"} onClick={applyBlogFilters}>
               Apply
             </button>
           </div>
@@ -261,9 +264,9 @@ export function AdminModerationPanel({ admin }: { admin: AdminData }) {
                         onClick={() => {
                           if (!confirm("Delete this blog post?")) return;
                           void deleteBlog(post.id)
-                            .then(() => {
+                            .then(async () => {
                               toast.success("Post removed.");
-                              setListBlogs((prev) => prev.filter((p) => p.id !== post.id));
+                              await blogsQuery.refetch();
                             })
                             .catch(() => toast.error("Could not delete post."));
                         }}

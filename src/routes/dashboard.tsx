@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidatePlannerData } from "@/lib/invalidateAppData";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { TopHeader } from "@/components/dashboard/TopHeader";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
 import { TaskWorkspace } from "@/components/tasks/TaskWorkspace";
@@ -22,6 +26,7 @@ const dashboardSearchSchema = z.object({
 });
 
 export const Route = createFileRoute("/dashboard")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -41,7 +46,12 @@ export const Route = createFileRoute("/dashboard")({
 
 function Dashboard() {
   const [leftExpanded, setLeftExpanded] = useState(false);
-  const { profile, loading: profileLoading, profileReady } = useUserStats();
+  const qc = useQueryClient();
+  const { profile, loading: profileLoading, profileReady, refreshProfile } = useUserStats();
+  const { refresh: refreshDashboard, isRefreshing } = usePageRefresh(async () => {
+    await invalidatePlannerData(qc);
+    await refreshProfile();
+  });
   const search = Route.useSearch();
   const { todayTasks, todayLoading, todayError } = useTasks();
   const openTasks = todayTasks.filter((t) => !t.is_completed).length;
@@ -86,7 +96,8 @@ function Dashboard() {
               <FacultyDashboard />
             ) : (
               <div className="space-y-8">
-                <header>
+                <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
                   <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
                     {formattedDate}
                   </p>
@@ -102,6 +113,8 @@ function Dashboard() {
                         ? "No open tasks for today — schedule a calendar event or check your course sections."
                         : `You have ${openTasks} task${openTasks === 1 ? "" : "s"} on today's queue.`}
                   </p>
+                  </div>
+                  <RefreshButton onClick={refreshDashboard} loading={isRefreshing} className="shrink-0" />
                 </header>
 
                 <DailyEnergyBar />

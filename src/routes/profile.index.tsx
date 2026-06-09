@@ -1,8 +1,9 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useUserStats } from "@/hooks/useUserStats";
 
 export const Route = createFileRoute("/profile/")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },

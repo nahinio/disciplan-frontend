@@ -1,8 +1,10 @@
+import { appRouteSsr } from "@/lib/routeAuth";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { isAuthenticated } from "@/lib/auth";
 
 export const Route = createFileRoute("/onboarding")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     if (typeof window !== "undefined" && !isAuthenticated()) {
       throw redirect({ to: "/signup" });

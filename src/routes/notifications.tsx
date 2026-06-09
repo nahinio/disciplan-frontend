@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/routeAuth";
+import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useState } from "react";
 import { TopHeader } from "@/components/dashboard/TopHeader";
 import { MobileTabBar } from "@/components/dashboard/MobileTabBar";
@@ -16,8 +16,11 @@ import {
   EyeOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 
 export const Route = createFileRoute("/notifications")({
+  ssr: appRouteSsr,
   beforeLoad: () => {
     requireAuth();
   },
@@ -44,7 +47,9 @@ function NotificationsPage() {
     toggleReadStatus,
     clearAll,
     resetNotifications,
+    refresh,
   } = useNotifications();
+  const { refresh: refreshNotifications, isRefreshing } = usePageRefresh(refresh);
 
   const [activeFilter, setActiveFilter] = useState<"all" | "academic" | "teams" | "system">("all");
 
@@ -213,7 +218,8 @@ function NotificationsPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+              <div className="flex items-center gap-2 self-start sm:self-center shrink-0 flex-wrap">
+                <RefreshButton onClick={refreshNotifications} loading={isRefreshing} />
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
