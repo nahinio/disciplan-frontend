@@ -1,6 +1,8 @@
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./auth";
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
+import { productionApi } from "@/lib/landingConfig";
+
+const BASE = import.meta.env.VITE_API_BASE_URL ?? productionApi.baseUrl;
 
 export class ApiError extends Error {
   status: number;

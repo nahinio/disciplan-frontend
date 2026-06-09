@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, FileJson, Github } from "lucide-react";
+import { ExternalLink, FileJson, Github, Server } from "lucide-react";
 import { DisciPlanLogo } from "@/components/DisciPlanLogo";
 import { landingLinks } from "@/lib/landingConfig";
 
@@ -11,6 +11,12 @@ const footerNav = [
 ];
 
 const resourceLinks = [
+  {
+    label: "Live API",
+    href: landingLinks.apiRoot,
+    icon: Server,
+    external: true,
+  },
   {
     label: "API Docs",
     href: landingLinks.apiDocs,

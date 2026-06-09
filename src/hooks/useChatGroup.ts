@@ -4,7 +4,9 @@ import { getAccessToken } from "@/lib/auth";
 import { initialsFromName } from "@/lib/offerings";
 import type { ChatMessage, SectionUser } from "@/data/mockSection";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
+import { productionApi } from "@/lib/landingConfig";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? productionApi.baseUrl;
 
 function wsUrl(groupId: number, token: string): string {
   const base = API_BASE.replace(/^http/, "ws");

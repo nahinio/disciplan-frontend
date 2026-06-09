@@ -5,7 +5,7 @@ Repository: [github.com/nahinio/disciplan-frontend](https://github.com/nahinio/d
 ## 1. Prerequisites
 
 - Backend deployed on Render (see `disciplan-backend/DEPLOY.md`)
-- Render API URL ready, e.g. `https://disciplan-api.onrender.com`
+- Live API: `https://disciplan-backend-bufl.onrender.com`
 
 ## 2. Import to Vercel
 
@@ -23,7 +23,7 @@ Add in Vercel → Project → Settings → Environment Variables:
 
 | Variable | Example |
 |----------|---------|
-| `VITE_API_BASE_URL` | `https://disciplan-api.onrender.com/api/v1` |
+| `VITE_API_BASE_URL` | `https://disciplan-backend-bufl.onrender.com/api/v1` |
 | `VITE_FRONTEND_REPO_URL` | `https://github.com/nahinio/disciplan-frontend` |
 | `VITE_BACKEND_REPO_URL` | `https://github.com/nahinio/disciplan-backend` |
 
