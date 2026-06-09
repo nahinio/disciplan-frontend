@@ -14,8 +14,9 @@ Repository: [github.com/nahinio/disciplan-frontend](https://github.com/nahinio/d
 3. Framework preset: **Vite** (or auto-detected)
 4. Build settings (from `vercel.json`):
    - **Build command:** `npm run build`
-   - **Output directory:** `dist/client`
+   - **Output directory:** leave empty (Nitro + Vercel preset writes SSR output automatically)
    - **Install command:** `npm install`
+   - **Framework preset:** TanStack Start (or Other — do **not** use plain Vite static)
 
 ## 3. Environment variables
 
@@ -47,6 +48,18 @@ Add multiple origins comma-separated if you use preview deployments.
 - API docs link in footer points to Render `/docs`
 - Test login, dashboard, and chat on the live URL
 
-## 6. TanStack Start note
+## 6. TanStack Start + Vercel (important)
 
-This app uses TanStack Start with Vite. If Vercel reports a missing entry, switch the framework preset to **Other** and keep the build command from `vercel.json`. For full SSR, see [TanStack Start hosting docs](https://tanstack.com/start/latest/docs/framework/react/hosting).
+This app is **TanStack Start with SSR**, not a static Vite SPA. `dist/client` has assets only (no `index.html`). Serving that folder alone causes Vercel **404 NOT_FOUND**.
+
+`vite.config.ts` must enable Nitro with the Vercel preset:
+
+```ts
+export default defineConfig({
+  nitro: { preset: "vercel" },
+});
+```
+
+Do **not** set `outputDirectory: "dist/client"` in `vercel.json` or in the Vercel dashboard. After pushing, redeploy. CORS on Render is separate — fix the frontend deploy first.
+
+See [TanStack Start on Vercel](https://vercel.com/docs/frameworks/full-stack/tanstack-start).
