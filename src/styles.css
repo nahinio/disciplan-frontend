@@ -242,3 +242,14 @@
   33% { transform: rotate(4deg) translateY(-4px); }
   66% { transform: rotate(-3deg) translateY(2px); }
 }
+
+/* Hide scroll/spin buttons on number inputs */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+

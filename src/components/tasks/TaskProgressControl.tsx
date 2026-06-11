@@ -103,8 +103,9 @@ export function TaskProgressControl({
     : "text-slate-400";
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
-      <div className="flex items-center gap-2 w-[9.5rem]">
+    <div className="flex flex-col gap-2.5 items-end justify-center w-full sm:w-auto">
+      {/* Slider section (top) */}
+      <div className="flex items-center gap-3 w-full sm:w-[12rem] justify-end">
         {completed ? (
           <div className={cn("flex-1 min-w-0 h-1.5 rounded-full overflow-hidden", progressTrack)}>
             <div className={cn("h-full w-full rounded-full", progressFill)} />
@@ -117,33 +118,41 @@ export function TaskProgressControl({
             disabled={disabled}
             onValueChange={(v) => setLive(v[0] ?? 0)}
             onValueCommit={(v) => onChange(v[0] ?? 0)}
-            className="flex-1 min-w-0 [&_[role=slider]]:h-2.5 [&_[role=slider]]:w-2.5 [&_[role=slider]]:border-0 [&_[role=slider]]:shadow-none"
+            className={cn(
+              "flex-1 min-w-0 py-1.5",
+              isSection
+                ? "[&_[role=slider]]:border-2 [&_[role=slider]]:border-[#7d9b76] [&_[role=slider]]:hover:scale-110 [&_[role=slider]]:transition-transform [&_.bg-primary]:bg-[#7d9b76] [&_.bg-primary\\/20]:bg-[#7d9b76]/20"
+                : "[&_[role=slider]]:border-2 [&_[role=slider]]:border-emerald-500 [&_[role=slider]]:hover:scale-110 [&_[role=slider]]:transition-transform [&_.bg-primary]:bg-emerald-500 [&_.bg-primary\\/20]:bg-emerald-500/20"
+            )}
           />
         )}
-        <span className={cn("text-[10px] tabular-nums w-8 text-right shrink-0", progressLabel)}>
+        <span className={cn("text-[11px] font-semibold tabular-nums w-10 text-right shrink-0", progressLabel)}>
           {displayValue}
         </span>
       </div>
 
-      <TaskActionPill
-        icon={<Check className="w-3.5 h-3.5" strokeWidth={2.5} />}
-        label={completed ? "Completed" : "Mark Complete"}
-        onClick={onToggleComplete}
-        disabled={disabled}
-        active={completed}
-        tone="complete"
-        activeTone={isSection ? "sage" : "emerald"}
-      />
-
-      {onSkip ? (
+      {/* Buttons section (bottom) */}
+      <div className="flex items-center gap-1.5 justify-end">
         <TaskActionPill
-          icon={<SkipForward className="w-3.5 h-3.5" strokeWidth={2.5} />}
-          label="Skip"
-          onClick={onSkip}
+          icon={<Check className="w-3.5 h-3.5" strokeWidth={2.5} />}
+          label={completed ? "Completed" : "Mark Complete"}
+          onClick={onToggleComplete}
           disabled={disabled}
-          tone="skip"
+          active={completed}
+          tone="complete"
+          activeTone={isSection ? "sage" : "emerald"}
         />
-      ) : null}
+
+        {onSkip ? (
+          <TaskActionPill
+            icon={<SkipForward className="w-3.5 h-3.5" strokeWidth={2.5} />}
+            label="Skip"
+            onClick={onSkip}
+            disabled={disabled}
+            tone="skip"
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -51,6 +51,7 @@ function mapDoubtListItem(
     images: [],
     isVerified: Boolean(row.is_verified),
     answerCount: Number(row.answer_count ?? 0),
+    authorUserId: row.author_user_id != null ? Number(row.author_user_id) : undefined,
   };
 }
 
@@ -216,6 +217,7 @@ export function useSectionHub(courseCode: string, sectionLabel: string) {
           images: [],
           isVerified: Boolean(detail.is_verified),
           acceptedAnswerId: acceptedId,
+          authorUserId: detail.author_user_id != null ? Number(detail.author_user_id) : undefined,
         };
       } catch {
         return null;
@@ -270,6 +272,9 @@ export function useSectionHub(courseCode: string, sectionLabel: string) {
     },
     deleteAnnouncement: async (announcementId: string) => {
       await run(() => api.deleteSectionAnnouncement(Number(announcementId)));
+    },
+    deleteDoubt: async (doubtId: string) => {
+      await run(() => api.deleteSectionDoubt(Number(doubtId)));
     },
     updateExamPortal: async (
       portalId: number,

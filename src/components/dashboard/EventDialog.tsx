@@ -66,7 +66,7 @@ export type EventForm = {
   priority?: Priority;
   personalMode?: PersonalMode;
   gradeComponentId?: number;
-  recurrenceDay?: number;
+  recurrenceDays?: number[];
   recurrenceTime?: string;
 };
 
@@ -95,7 +95,7 @@ const initial = (date: Date | null): EventForm => ({
   notes: "",
   priority: "Med",
   personalMode: "deadline",
-  recurrenceDay: 1,
+  recurrenceDays: [1],
   recurrenceTime: "07:00",
 });
 
@@ -163,14 +163,17 @@ export function EventDialog({
   }, [offerings, profile.sections]);
 
   const sectionsForCourse = (courseCode: string) => {
+    const userSections = (profile.sections ?? [])
+      .filter((sk) => sk.startsWith(`${courseCode}::`))
+      .map((sk) => sk.split("::")[1] ?? "")
+      .filter(Boolean);
+    if (userSections.length > 0) return userSections;
+
     const fromOfferings = offerings
       .filter((o) => o.course_code === courseCode)
       .map((o) => o.section);
     if (fromOfferings.length > 0) return fromOfferings;
-    return (profile.sections ?? [])
-      .filter((sk) => sk.startsWith(`${courseCode}::`))
-      .map((sk) => sk.split("::")[1] ?? "")
-      .filter(Boolean);
+    return [];
   };
 
   const sectionOptions = useMemo(() => {
@@ -294,13 +297,14 @@ export function EventDialog({
       body.grade_component_id = form.gradeComponentId;
     }
     if (needsWeekly) {
-      body.recurrence = [
-        {
-          day_of_week: form.recurrenceDay ?? 1,
-          starts_time: form.recurrenceTime ?? "07:00",
-          duration_min: Math.max(15, (form.effort || 3) * 30),
-        },
-      ];
+      body.recurrence = (form.recurrenceDays && form.recurrenceDays.length > 0
+        ? form.recurrenceDays
+        : [1]
+      ).map((day) => ({
+        day_of_week: day,
+        starts_time: form.recurrenceTime ?? "07:00",
+        duration_min: Math.max(15, (form.effort || 3) * 30),
+      }));
     }
 
     try {
@@ -495,14 +499,26 @@ export function EventDialog({
                                 set("gradeComponentId", v ? Number(v) : undefined)
                               }
                               placeholder="Select component…"
-                              options={[
-                                { value: "", label: "Select component…" },
-                                ...(gradeComponentsQuery.data ?? []).map((c) => ({
-                                  value: String(c.id),
-                                  label: `${c.label} (${c.component_type})`,
-                                })),
-                              ]}
+                              contentClassName="z-[200]"
+                              options={
+                                gradeComponentsQuery.isPending
+                                  ? [{ value: "", label: "Loading components…" }]
+                                  : (gradeComponentsQuery.data ?? []).length === 0
+                                    ? [{ value: "", label: "No active components found — Add them in Gradebook" }]
+                                    : [
+                                        { value: "", label: "Select component…" },
+                                        ...(gradeComponentsQuery.data ?? []).map((c) => ({
+                                          value: String(c.id),
+                                          label: `${c.label} (${c.component_type.toUpperCase()})`,
+                                        })),
+                                      ]
+                              }
                             />
+                            {!gradeComponentsQuery.isPending && (gradeComponentsQuery.data ?? []).length === 0 && (
+                              <p className="text-xs text-rose mt-1.5 font-medium">
+                                Please create grading components in the Gradebook first.
+                              </p>
+                            )}
                           </div>
                         )}
 
@@ -581,23 +597,39 @@ export function EventDialog({
                 {needsWeekly && (
                   <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label>Day</Label>
+                      <Label>Days</Label>
                       <div className="flex flex-wrap gap-1.5">
-                        {WEEKDAYS.map((d) => (
-                          <button
-                            key={d.value}
-                            type="button"
-                            onClick={() => set("recurrenceDay", d.value)}
-                            className={cn(
-                              "px-3 py-1.5 text-xs font-bold rounded-lg border",
-                              form.recurrenceDay === d.value
-                                ? "bg-rose text-white border-transparent"
-                                : "border-border text-slate-600"
-                            )}
-                          >
-                            {d.label}
-                          </button>
-                        ))}
+                        {WEEKDAYS.map((d) => {
+                          const isSelected = (form.recurrenceDays || []).includes(d.value);
+                          return (
+                            <button
+                              key={d.value}
+                              type="button"
+                              onClick={() => {
+                                const currentDays = form.recurrenceDays || [];
+                                let nextDays: number[];
+                                if (isSelected) {
+                                  if (currentDays.length <= 1) {
+                                    toast.error("Please keep at least one day selected");
+                                    return;
+                                  }
+                                  nextDays = currentDays.filter((val) => val !== d.value);
+                                } else {
+                                  nextDays = [...currentDays, d.value];
+                                }
+                                set("recurrenceDays", nextDays);
+                              }}
+                              className={cn(
+                                "px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer",
+                                isSelected
+                                  ? "bg-rose text-white border-transparent"
+                                  : "border-border text-slate-600 hover:bg-slate-50"
+                              )}
+                            >
+                              {d.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                     <div>

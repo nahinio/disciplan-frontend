@@ -57,11 +57,13 @@ function SettingsPage() {
   const [name, setName] = useState(profile.name);
   const [email] = useState(profile.email);
   const [photo, setPhoto] = useState(profile.photo);
+  const [bio, setBio] = useState(profile.bio || "");
 
   useEffect(() => {
     setName(profile.name);
     setPhoto(profile.photo);
-  }, [profile.name, profile.photo]);
+    setBio(profile.bio || "");
+  }, [profile.name, profile.photo, profile.bio]);
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -87,7 +89,7 @@ function SettingsPage() {
       } else if (!hasCustomAvatar(photo) && hasCustomAvatar(profile.photo)) {
         photoArg = null;
       }
-      await saveProfile(name.trim(), photoArg);
+      await saveProfile(name.trim(), photoArg, bio.trim());
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch {
@@ -291,6 +293,19 @@ function SettingsPage() {
                         onChange={(e) => setName(e.target.value)}
                         required
                         className="w-full h-10 px-3.5 rounded-xl border border-border bg-background text-xs font-semibold focus:outline-none focus:border-rose focus:ring-1 focus:ring-rose transition"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Bio
+                      </label>
+                      <textarea
+                        value={bio}
+                        onChange={(e) => setBio(e.target.value)}
+                        maxLength={500}
+                        placeholder="Tell others about yourself..."
+                        className="w-full min-h-[80px] p-3.5 rounded-xl border border-border bg-background text-xs font-semibold focus:outline-none focus:border-rose focus:ring-1 focus:ring-rose transition resize-none"
                       />
                     </div>
 

@@ -30,7 +30,9 @@ import {
   ClipboardList,
   FolderOpen,
   Search,
-  Flag
+  Flag,
+  Minus,
+  Maximize2
 } from "lucide-react";
 import { z } from "zod";
 import { TopHeader } from "@/components/dashboard/TopHeader";
@@ -679,6 +681,17 @@ function CourseSectionPage() {
   const doubts = hub.doubts;
 
   const [selectedDoubtId, setSelectedDoubtId] = useState<string | null>(search.doubtId || null);
+  const [doubtFilter, setDoubtFilter] = useState<"all" | "mine">("all");
+
+  const filteredDoubts = useMemo(() => {
+    return doubts.filter((d) => {
+      if (doubtFilter === "all") return true;
+      return (
+        d.authorUserId === profile.id ||
+        (profile.name && d.author.name.toLowerCase() === profile.name.toLowerCase())
+      );
+    });
+  }, [doubts, doubtFilter, profile.id, profile.name]);
   const [isDoubtReportOpen, setIsDoubtReportOpen] = useState(false);
 
   // Sync doubtId from search query parameters
@@ -720,13 +733,20 @@ function CourseSectionPage() {
 
   const [chatInputText, setChatInputText] = useState("");
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
-    if (chatBottomRef.current) {
-      chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
+    if (isChatOpen && !isChatMinimized && chatBottomRef.current) {
+      const timer = setTimeout(() => {
+        if (chatBottomRef.current) {
+          chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 50);
+      return () => clearTimeout(timer);
     }
-  }, [chatMessages]);
+  }, [chatMessages, isChatOpen, isChatMinimized]);
 
   // Handlers for image attachments
   const handleAnnImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -735,8 +755,9 @@ function CourseSectionPage() {
       files.forEach((file) => {
         const reader = new FileReader();
         reader.onloadend = () => {
-          if (typeof reader.result === "string") {
-            setAnnImages((prev) => [...prev, reader.result]);
+          const res = reader.result;
+          if (typeof res === "string") {
+            setAnnImages((prev) => [...prev, res]);
           }
         };
         reader.readAsDataURL(file);
@@ -750,8 +771,9 @@ function CourseSectionPage() {
       files.forEach((file) => {
         const reader = new FileReader();
         reader.onloadend = () => {
-          if (typeof reader.result === "string") {
-            setDoubtImages((prev) => [...prev, reader.result]);
+          const res = reader.result;
+          if (typeof res === "string") {
+            setDoubtImages((prev) => [...prev, res]);
           }
         };
         reader.readAsDataURL(file);
@@ -845,6 +867,20 @@ function CourseSectionPage() {
     }
   };
 
+  const handleSectionDeleteDoubt = async (doubtId: string) => {
+    if (!window.confirm("Are you sure you want to delete this doubt?")) return;
+    try {
+      await hub.deleteDoubt(doubtId);
+      if (selectedDoubtId === doubtId) {
+        setSelectedDoubtId(null);
+        setSelectedDoubtDetail(null);
+      }
+      toast.success("Doubt deleted successfully.");
+    } catch {
+      toast.error("Could not delete doubt.");
+    }
+  };
+
   const handleSectionVerifyAnswer = async (answerId: string) => {
     try {
       await api.acceptDoubtAnswer(Number(answerId));
@@ -935,13 +971,6 @@ function CourseSectionPage() {
                   {isFacultyView ? "Student Doubts" : "Ask Question"}
                 </TabsTrigger>
                 <TabsTrigger
-                  value="chat"
-                  className="inline-flex items-center gap-1.5 px-3 py-1 h-7 rounded-md text-xs font-semibold transition data-[state=active]:bg-white data-[state=active]:text-slate-800 data-[state=active]:shadow-sm text-slate-500 hover:text-slate-700 cursor-pointer"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  Chat Room
-                </TabsTrigger>
-                <TabsTrigger
                   value="section-resources"
                   className="inline-flex items-center gap-1.5 px-3 py-1 h-7 rounded-md text-xs font-semibold transition data-[state=active]:bg-white data-[state=active]:text-slate-800 data-[state=active]:shadow-sm text-slate-500 hover:text-slate-700 cursor-pointer"
                 >
@@ -949,13 +978,22 @@ function CourseSectionPage() {
                   Section Resources
                 </TabsTrigger>
                 {!isFacultyView && (
-                  <TabsTrigger
-                    value="exams"
-                    className="inline-flex items-center gap-1.5 px-3 py-1 h-7 rounded-md text-xs font-semibold transition data-[state=active]:bg-white data-[state=active]:text-slate-800 data-[state=active]:shadow-sm text-slate-500 hover:text-slate-700 cursor-pointer"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    Exams & Assignments
-                  </TabsTrigger>
+                  <>
+                    <TabsTrigger
+                      value="exams"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 h-7 rounded-md text-xs font-semibold transition data-[state=active]:bg-white data-[state=active]:text-slate-800 data-[state=active]:shadow-sm text-slate-500 hover:text-slate-700 cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      Exams & Assignments
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="students"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 h-7 rounded-md text-xs font-semibold transition data-[state=active]:bg-white data-[state=active]:text-slate-800 data-[state=active]:shadow-sm text-slate-500 hover:text-slate-700 cursor-pointer"
+                    >
+                      <GraduationCap className="w-3.5 h-3.5" />
+                      My Grades
+                    </TabsTrigger>
+                  </>
                 )}
                 {isFacultyView && (
                   <>
@@ -1355,14 +1393,46 @@ function CourseSectionPage() {
                       </div>
                     )}
 
+                    {/* Sub-tabs filter */}
+                    <div className="flex items-center gap-1 border-b border-slate-100 pb-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setDoubtFilter("all")}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer",
+                          doubtFilter === "all"
+                            ? "bg-[#7d9b76] text-white"
+                            : "text-slate-600 hover:bg-slate-100"
+                        )}
+                      >
+                        All Doubts
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDoubtFilter("mine")}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer",
+                          doubtFilter === "mine"
+                            ? "bg-[#7d9b76] text-white"
+                            : "text-slate-600 hover:bg-slate-100"
+                        )}
+                      >
+                        My Doubts
+                      </button>
+                    </div>
+
                     {/* Doubts list cards */}
-                    {doubts.length === 0 ? (
+                    {filteredDoubts.length === 0 ? (
                       <div className="text-center py-12 bg-white rounded-2xl border border-[#dce5d4] shadow-sm">
-                        <p className="text-sm text-slate-500 font-medium">No doubts posted for this section yet.</p>
+                        <p className="text-sm text-slate-500 font-medium">
+                          {doubtFilter === "mine"
+                            ? "You haven't posted any doubts in this section yet."
+                            : "No doubts posted for this section yet."}
+                        </p>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {doubts.map((d) => {
+                        {filteredDoubts.map((d) => {
                           const isSelected = selectedDoubtId === d.id;
                           const count = getAnswerCount(d.id);
                           const hasSolved =
@@ -1474,6 +1544,18 @@ function CourseSectionPage() {
                                   >
                                     <Flag className="w-3.5 h-3.5" />
                                     {doubt.reported ? "Reported" : "Report"}
+                                  </button>
+                                )}
+                                {(doubt.authorUserId === profile.id ||
+                                  (profile.name && doubt.author.name.toLowerCase() === profile.name.toLowerCase()) ||
+                                  isFacultyView) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleSectionDeleteDoubt(doubt.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-700 bg-red-50/50 hover:bg-red-50 text-[11px] font-bold transition cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Delete
                                   </button>
                                 )}
                                 <button
@@ -1590,83 +1672,6 @@ function CourseSectionPage() {
                       })()}
                     </div>
                   )}
-                </div>
-              </TabsContent>
-
-              {/* 3. CHAT ROOM TAB */}
-              <TabsContent value="chat" className="mt-0 focus-visible:outline-none">
-                <div className="rounded-[1.5rem] border border-[#dce5d4] bg-white shadow-sm flex flex-col h-[600px] overflow-hidden">
-                  
-                  {/* Chat Info Header */}
-                  <header className="p-4 border-b border-slate-100 bg-[#faf8f3] flex items-center justify-between shrink-0">
-                    <div>
-                      <h3 className="font-display text-sm font-bold text-slate-800">Section {offering.section} Group Chat</h3>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Faculty, CR, and all students can chat here.</p>
-                    </div>
-                    <span className={`text-[9px] uppercase tracking-widest font-black ${wsConnected ? "text-emerald-600" : "text-amber-600"}`}>
-                      {wsConnected ? "Live" : "Syncing"}
-                    </span>
-                  </header>
-
-                  {/* Message Logs */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#faf8f3]/25 scrollbar-thin">
-                    {chatMessages.length === 0 ? (
-                      <p className="text-slate-400 text-xs py-10 text-center">No messages yet. Send a hello!</p>
-                    ) : (
-                      chatMessages.map((msg) => {
-                        const isSelf =
-                          profile.name &&
-                          msg.author.name.toLowerCase() === profile.name.toLowerCase();
-                        const isFaculty = msg.author.role === "faculty";
-                        return (
-                          <div
-                            key={msg.id}
-                            className={cn(
-                              "flex flex-col max-w-[75%] rounded-2xl p-3 shadow-sm",
-                              isSelf
-                                ? "ml-auto bg-[#7d9b76] text-white rounded-br-none"
-                                : isFaculty
-                                  ? "bg-amber-50 border border-amber-200 text-slate-800 rounded-bl-none"
-                                  : "bg-white border border-[#dce5d4] text-slate-800 rounded-bl-none"
-                            )}
-                          >
-                            <div className="flex items-center gap-1.5 text-[9px] font-bold mb-1 opacity-90 flex-wrap">
-                              <span className={isSelf ? "text-white/90" : "text-slate-600"}>
-                                {msg.author.name}
-                              </span>
-                              <RoleBadge role={msg.author.role} name={msg.author.name} />
-                            </div>
-                            <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                            <span className={cn(
-                              "text-[8px] mt-1.5 self-end opacity-70",
-                              isSelf ? "text-white/80" : "text-slate-400"
-                            )}>
-                              {msg.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                    <div ref={chatBottomRef} />
-                  </div>
-
-                  {/* Input Form */}
-                  <form onSubmit={handleChatSend} className="p-3 border-t border-slate-100 bg-white flex gap-2 items-center shrink-0">
-                    <input
-                      type="text"
-                      required
-                      placeholder="Send a chat message to your section..."
-                      value={chatInputText}
-                      onChange={(e) => setChatInputText(e.target.value)}
-                      className="flex-1 h-10 px-4 rounded-full border border-[#dce5d4] focus:outline-none focus:ring-1 focus:ring-[#7d9b76] text-xs text-slate-800 bg-[#faf8f3]"
-                    />
-                    <button
-                      type="submit"
-                      className="grid place-items-center w-10 h-10 rounded-full bg-[#7d9b76] text-white hover:bg-[#6b8865] shrink-0 transition shadow-sm cursor-pointer"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </form>
                 </div>
               </TabsContent>
 
@@ -3052,6 +3057,153 @@ function CourseSectionPage() {
         </div>
       </main>
       <MobileTabBar />
+
+      {/* Floating Chat Widget FAB & Window */}
+      {!isChatOpen && (
+        <button
+          onClick={() => {
+            setIsChatOpen(true);
+            setIsChatMinimized(false);
+          }}
+          className="fixed bottom-20 md:bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-[#7d9b76] text-white shadow-lg hover:shadow-xl hover:bg-[#6b8865] active:scale-95 hover:scale-105 transition-all duration-200 cursor-pointer focus:outline-none"
+          title="Open Section Chat"
+        >
+          <MessageSquare className="w-6 h-6" />
+        </button>
+      )}
+
+      {isChatOpen && (
+        <div
+          className={cn(
+            "fixed bottom-20 md:bottom-6 right-6 z-50 w-[360px] sm:w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-2xl border border-[#dce5d4] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out",
+            isChatMinimized ? "h-auto" : "h-[500px] max-h-[calc(105vh-15rem)] md:max-h-[calc(100vh-6rem)]"
+          )}
+        >
+          {/* Chat Info Header */}
+          <header
+            onClick={() => setIsChatMinimized((prev) => !prev)}
+            className="p-3 border-b border-slate-100 bg-[#faf8f3] flex items-center justify-between shrink-0 select-none cursor-pointer hover:bg-[#faf8f3]/80 transition"
+          >
+            <div>
+              <h3 className="font-display text-xs sm:text-sm font-bold text-slate-800">
+                Section {offering.section} Group Chat
+              </h3>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {wsConnected ? (
+                  <span className="text-emerald-600 font-semibold">Live connection</span>
+                ) : (
+                  <span className="text-amber-600 font-semibold">Syncing...</span>
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setIsChatMinimized((prev) => !prev)}
+                className="p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition cursor-pointer animate-none"
+                title={isChatMinimized ? "Expand" : "Minimize"}
+              >
+                {isChatMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition cursor-pointer animate-none"
+                title="Close"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </header>
+
+          {/* Expanded view: Message Logs & Input Form */}
+          {!isChatMinimized && (
+            <>
+              {/* Message Logs */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#faf8f3]/25 scrollbar-thin">
+                {chatMessages.length === 0 ? (
+                  <p className="text-slate-400 text-xs py-10 text-center">No messages yet. Send a hello!</p>
+                ) : (
+                  chatMessages.map((msg) => {
+                    const isSelf =
+                      profile.name &&
+                      msg.author.name.toLowerCase() === profile.name.toLowerCase();
+                    const isFaculty = msg.author.role === "faculty";
+                    if (isSelf) {
+                      return (
+                        <div
+                          key={msg.id}
+                          className="flex flex-col items-end ml-auto max-w-[85%] animate-none"
+                        >
+                          <span className="text-[8px] text-slate-400 mb-1 mr-1 select-none">
+                            {msg.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          <div className="rounded-2xl rounded-tr-none px-3 py-2 text-xs text-[#2a4e25] bg-[#eef5ed] border border-[#d2e4ce] shadow-sm">
+                            <p className="leading-normal whitespace-pre-wrap font-normal text-[11px]">{msg.content}</p>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div
+                          key={msg.id}
+                          className="flex gap-2 items-start max-w-[85%] animate-none"
+                        >
+                          <div
+                            className={cn(
+                              "flex items-center justify-center w-7 h-7 rounded-full text-white font-bold text-[9px] shrink-0 shadow-sm mt-3.5 select-none",
+                              isFaculty ? "bg-amber-500" : "bg-[#7d9b76]"
+                            )}
+                            title={msg.author.name}
+                          >
+                            {msg.author.initials}
+                          </div>
+                          <div className="flex flex-col items-start">
+                            <div className="flex items-baseline gap-1.5 mb-1 text-[9px] select-none">
+                              <span className="font-bold text-slate-700">{msg.author.name}</span>
+                              <RoleBadge role={msg.author.role} name={msg.author.name} />
+                              <span className="text-slate-400 text-[8px]">
+                                {msg.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                            <div
+                              className={cn(
+                                "rounded-2xl rounded-tl-none px-3 py-2 text-xs text-slate-800 shadow-sm border",
+                                isFaculty ? "bg-amber-50/70 border-amber-100" : "bg-white border-[#dce5d4]"
+                              )}
+                            >
+                              <p className="leading-normal whitespace-pre-wrap font-normal text-[11px]">{msg.content}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                  })
+                )}
+                <div ref={chatBottomRef} />
+              </div>
+
+              {/* Input Form */}
+              <form onSubmit={handleChatSend} className="p-2 border-t border-slate-100 bg-white shrink-0">
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Type your message..."
+                    value={chatInputText}
+                    onChange={(e) => setChatInputText(e.target.value)}
+                    className="w-full h-9 pl-3 pr-8 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#7d9b76] text-[11px] text-slate-800 bg-[#faf8f3]/30"
+                  />
+                  <button
+                    type="submit"
+                    className="absolute right-1 w-7 h-7 rounded-lg text-slate-400 hover:text-[#7d9b76] transition cursor-pointer flex items-center justify-center"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

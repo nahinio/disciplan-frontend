@@ -31,6 +31,7 @@ export interface ProfileData {
   role: "student" | "faculty" | "admin";
   status: "active" | "pending" | "suspended";
   sections?: string[];
+  bio?: string;
 }
 
 export const ROLE_AVATAR_GRADIENT: Record<ProfileData["role"], string> = {
@@ -89,6 +90,7 @@ const EMPTY_PROFILE: ProfileData = {
   role: "student",
   status: "active",
   sections: [],
+  bio: "",
 };
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -131,6 +133,7 @@ function mapMeToProfile(me: Record<string, unknown>): ProfileData {
     role: (me.role_code as ProfileData["role"]) ?? "student",
     status: (me.status_code as ProfileData["status"]) ?? "active",
     sections,
+    bio: me.bio ? String(me.bio) : "",
   };
 }
 
@@ -142,7 +145,7 @@ interface UserStatsContextValue {
   loading: boolean;
   profileReady: boolean;
   updateProfile: (fields: Partial<ProfileData>) => void;
-  saveProfile: (displayName: string, photo?: string | null) => Promise<void>;
+  saveProfile: (displayName: string, photo?: string | null, bio?: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
   togglePreference: (key: keyof UserPreferences) => Promise<void>;
   setTheme: (theme: "light" | "dark" | "system") => Promise<void>;
@@ -245,8 +248,11 @@ export function UserStatsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const saveProfile = useCallback(
-    async (displayName: string, photo?: string | null) => {
+    async (displayName: string, photo?: string | null, bio?: string) => {
       const body: Record<string, unknown> = { display_name: displayName };
+      if (bio !== undefined) {
+        body.bio = bio;
+      }
 
       if (photo === null) {
         body.avatar_file_id = null;

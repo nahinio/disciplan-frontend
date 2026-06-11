@@ -4,6 +4,7 @@ export const queryKeys = {
   tasks: {
     all: ["tasks"] as const,
     today: ["tasks", "today"] as const,
+    plan: ["tasks", "plan"] as const,
     energy: ["tasks", "energy"] as const,
     eventPlans: ["event-plans"] as const,
   },

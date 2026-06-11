@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -14,7 +15,6 @@ import { api } from "@/lib/api";
 import { invalidateDoubtsData } from "@/lib/invalidateAppData";
 import { queryKeys } from "@/lib/queryKeys";
 import { TaskWorkspace } from "@/components/tasks/TaskWorkspace";
-import { DailyEnergyBar } from "@/components/tasks/DailyEnergyBar";
 import { UpcomingEvents } from "./UpcomingEvents";
 import { firstName, timeGreeting } from "@/lib/greeting";
 import { RefreshButton } from "@/components/ui/refresh-button";
@@ -189,7 +189,15 @@ export function FacultyDashboard() {
             You have {teachingSections.length} active course sections. {doubtsList.length} student doubts are pending resolution in your hub.
           </p>
         </div>
-        <RefreshButton onClick={refreshFacultyHub} loading={isRefreshing} className="shrink-0" />
+        <div className="flex items-center gap-3 shrink-0">
+          <Link
+            to="/plan"
+            className="inline-flex items-center justify-center px-4.5 h-9 rounded-full bg-rose text-white text-xs font-bold hover:bg-rose/90 shadow-sm transition shrink-0"
+          >
+            View 10-Day Plan
+          </Link>
+          <RefreshButton onClick={refreshFacultyHub} loading={isRefreshing} className="shrink-0" />
+        </div>
       </header>
 
       {/* Navigation tabs inside Dashboard */}
@@ -233,7 +241,6 @@ export function FacultyDashboard() {
             exit={{ opacity: 0, y: -10 }}
             className="space-y-8"
           >
-            <DailyEnergyBar />
             <TaskWorkspace />
             <UpcomingEvents />
           </motion.div>

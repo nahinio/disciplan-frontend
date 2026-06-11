@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 import { countdown, type Task } from "@/lib/dashboard-data";
 import {
   isDeadlineDayEnded,
@@ -15,7 +16,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { ScheduleEventButton } from "./ScheduleEventButton";
 import { EventPlanMenu } from "./EventPlanMenu";
 
-const urgencyClass: Record<Task["urgency"], string> = {
+const priorityClass: Record<Task["priority"], string> = {
   High: "bg-rose text-white",
   Med: "bg-amber-400 text-amber-950",
   Low: "bg-emerald-400 text-emerald-950",
@@ -27,7 +28,7 @@ type UpcomingItem = Task & {
   taskId?: number | null;
 };
 
-function urgencyForType(typeCode: string, priority?: string | null): Task["urgency"] {
+function priorityForType(typeCode: string, priority?: string | null): Task["priority"] {
   if (typeCode === "ct" || typeCode === "exam_quiz") return "High";
   if (typeCode === "assignment") return "Med";
   if (priority) {
@@ -97,14 +98,14 @@ function mapTask(t: UserTask): UpcomingItem {
   const due = new Date(t.due_at!);
   const start = new Date(due.getTime() - 7 * 24 * 3600000);
   const diff = taskDifficulty(t.priority_code);
-  const urgency = diff === "Hard" ? "High" : diff === "Easy" ? "Low" : "Med";
+  const priority = diff === "Hard" ? "High" : diff === "Easy" ? "Low" : "Med";
   return {
     id: String(t.id),
     title: t.title,
     course: t.course_code ?? "Personal",
     due,
     start,
-    urgency,
+    priority,
     completionPercent: t.is_completed ? 100 : sliceProgressPercent(t),
     eventPlanId: t.event_plan_id ?? null,
     taskId: t.id,
@@ -128,7 +129,8 @@ function buildPlanItem(
 
   const openTasks = tasks.filter((t) => !t.is_completed && !t.is_skipped);
   const todayComplete = showAsTodayComplete(tasks);
-  const progress = plan
+  const isDivided = plan ? plan.scheduling_mode === "deadline_divide" : false;
+  const progress = (plan && isDivided)
     ? Math.round(Number(plan.plan_completed_percent ?? 0))
     : planProgressFromTasks(tasks);
 
@@ -140,7 +142,7 @@ function buildPlanItem(
     if (openTasks.length === 0 && progress >= 100) return null;
   }
 
-  const displayProgress = todayComplete ? 100 : progress;
+  const displayProgress = progress;
   const rep = openTasks[0] ?? tasks[0];
   const typeCode = String(plan?.planner_task_type_code ?? rep?.planner_task_type_code ?? "");
 
@@ -152,7 +154,7 @@ function buildPlanItem(
       : (rep?.course_code ?? "Personal"),
     due,
     start: new Date(due.getTime() - 7 * 24 * 3600000),
-    urgency: urgencyForType(typeCode, rep?.priority_code),
+    priority: priorityForType(typeCode, rep?.priority_code),
     completionPercent: displayProgress,
     eventPlanId: planId,
     taskId: rep?.id ?? null,
@@ -161,14 +163,25 @@ function buildPlanItem(
 
 function TideCard({ task }: { task: UpcomingItem }) {
   const fillPct = Math.round(task.completionPercent);
+  const isDone = fillPct >= 100;
 
   return (
-    <div className="relative shrink-0 w-64 h-72 rounded-2xl border border-border bg-card overflow-hidden shadow-[0_1px_0_rgba(0,0,0,0.02),0_8px_24px_-12px_rgba(0,0,0,0.08)]">
+    <div
+      className={cn(
+        "relative shrink-0 w-64 h-72 rounded-2xl border bg-card overflow-hidden shadow-[0_1px_0_rgba(0,0,0,0.02),0_8px_24px_-12px_rgba(0,0,0,0.08)] transition-all duration-300",
+        isDone ? "border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.08)]" : "border-border"
+      )}
+    >
       <motion.div
         initial={{ height: 0 }}
         animate={{ height: `${fillPct}%` }}
         transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-emerald-500/40 via-emerald-500/10 to-transparent"
+        className={cn(
+          "absolute inset-x-0 bottom-0",
+          isDone
+            ? "bg-gradient-to-t from-emerald-500/35 via-emerald-500/25 to-emerald-500/15"
+            : "bg-gradient-to-t from-emerald-500/40 via-emerald-500/10 to-transparent"
+        )}
       />
 
       <div className="relative h-full p-5 flex flex-col justify-between">
@@ -178,9 +191,9 @@ function TideCard({ task }: { task: UpcomingItem }) {
           </span>
           <div className="flex items-center gap-1 shrink-0">
             <span
-              className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full ${urgencyClass[task.urgency]}`}
+              className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full ${priorityClass[task.priority]}`}
             >
-              {task.urgency}
+              {task.priority}
             </span>
             <EventPlanMenu
               eventRef={{

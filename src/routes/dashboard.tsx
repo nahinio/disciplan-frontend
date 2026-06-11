@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,7 +8,6 @@ import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { TopHeader } from "@/components/dashboard/TopHeader";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
 import { TaskWorkspace } from "@/components/tasks/TaskWorkspace";
-import { DailyEnergyBar } from "@/components/tasks/DailyEnergyBar";
 import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
 import { AcademicCalendar } from "@/components/dashboard/AcademicCalendar";
 import { MobileTabBar } from "@/components/dashboard/MobileTabBar";
@@ -62,6 +61,14 @@ function Dashboard() {
     day: "numeric",
   }).format(new Date());
 
+  const statusMessage = todayLoading
+    ? "Loading your task queue…"
+    : todayError
+    ? "Could not load today's tasks — refresh the page or try again shortly."
+    : openTasks === 0
+    ? "No open tasks for today — schedule a calendar event or check your course sections."
+    : `You have ${openTasks} task${openTasks === 1 ? "" : "s"} on today's queue.`;
+
   if (!profileReady || (profileLoading && !profile.email)) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-paper text-ink gap-3">
@@ -98,27 +105,26 @@ function Dashboard() {
               <div className="space-y-8">
                 <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-                    {formattedDate}
-                  </p>
-                  <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight mt-2 text-slate-800 leading-[1.05]">
-                    {timeGreeting()}, {firstName(profile.name)}.
-                  </h1>
-                  <p className="text-muted-foreground mt-2 max-w-xl">
-                    {todayLoading
-                      ? "Loading your task queue…"
-                      : todayError
-                        ? "Could not load today's tasks — refresh the page or try again shortly."
-                        : openTasks === 0
-                        ? "No open tasks for today — schedule a calendar event or check your course sections."
-                        : `You have ${openTasks} task${openTasks === 1 ? "" : "s"} on today's queue.`}
-                  </p>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                      {formattedDate}
+                    </p>
+                    <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight mt-2 text-slate-800 leading-[1.05]">
+                      {timeGreeting()}, {firstName(profile.name)}.
+                    </h1>
+                    <p className="text-muted-foreground mt-2 max-w-xl">
+                      {statusMessage}
+                    </p>
                   </div>
-                  <RefreshButton onClick={refreshDashboard} loading={isRefreshing} className="shrink-0" />
+                  <div className="flex items-center gap-3 shrink-0">
+                    <Link
+                      to="/plan"
+                      className="inline-flex items-center justify-center px-4.5 h-9 rounded-full bg-rose text-white text-xs font-bold hover:bg-rose/90 shadow-sm transition shrink-0"
+                    >
+                      View 10-Day Plan
+                    </Link>
+                    <RefreshButton onClick={refreshDashboard} loading={isRefreshing} className="shrink-0" />
+                  </div>
                 </header>
-
-                <DailyEnergyBar />
-
                 <TaskWorkspace />
 
                 <UpcomingEvents />

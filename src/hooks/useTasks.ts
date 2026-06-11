@@ -39,6 +39,8 @@ export interface UserTask {
   was_skipped_forward?: boolean;
   weight_profile?: "planner" | "scheduled" | null;
   occurrence_starts_at?: string | null;
+  scheduled_for_date?: string | null;
+  effective_date?: string | null;
 }
 
 export type EnergyLevel = "low" | "medium" | "high";
@@ -68,6 +70,17 @@ export function useTasks() {
     refetchOnWindowFocus: true,
   });
 
+  const planQuery = useQuery({
+    queryKey: queryKeys.tasks.plan,
+    queryFn: async () => {
+      const res = await api.getTasksPlan();
+      return res.items as UserTask[];
+    },
+    enabled,
+    retry: 1,
+    staleTime: 30_000,
+  });
+
   const energyQuery = useQuery({
     queryKey: queryKeys.tasks.energy,
     queryFn: async () => {
@@ -87,6 +100,7 @@ export function useTasks() {
         list?.map((t) => (t.id === id ? { ...t, ...patch } : t));
       qc.setQueryData(queryKeys.tasks.all, apply);
       qc.setQueryData(queryKeys.tasks.today, apply);
+      qc.setQueryData(queryKeys.tasks.plan, apply);
     },
     [qc]
   );
@@ -116,6 +130,8 @@ export function useTasks() {
         patch.completed_portion_percent = Number(body.completed_portion_percent);
       if ("is_skipped" in body || "skipped" in body)
         patch.is_skipped = Boolean(body.is_skipped ?? body.skipped);
+      if ("scheduled_for_date" in body)
+        patch.scheduled_for_date = body.scheduled_for_date as string | null;
       if (Object.keys(patch).length) patchTaskInCaches(id, patch);
     },
     onSettled: () => void invalidateTasks(),
@@ -130,23 +146,27 @@ export function useTasks() {
     await Promise.all([
       qc.invalidateQueries({ queryKey: queryKeys.tasks.all }),
       qc.invalidateQueries({ queryKey: queryKeys.tasks.today }),
+      qc.invalidateQueries({ queryKey: queryKeys.tasks.plan }),
       qc.invalidateQueries({ queryKey: queryKeys.tasks.energy }),
     ]);
   }, [qc]);
 
   const tasksLoading = enabled && tasksQuery.isPending;
   const todayLoading = enabled && todayQuery.isPending && !todayQuery.isError;
+  const planLoading = enabled && planQuery.isPending && !planQuery.isError;
   const todayError = todayQuery.isError;
   const energyLoading = enabled && energyQuery.isPending;
 
   return {
     tasks: tasksQuery.data ?? [],
     todayTasks: todayQuery.data ?? [],
+    planTasks: planQuery.data ?? [],
     dailyEnergy: energyQuery.data ?? null,
     /** @deprecated Prefer tasksLoading / todayLoading for the surface you render. */
     loading: tasksLoading,
     tasksLoading,
     todayLoading,
+    planLoading,
     todayError,
     energyLoading,
     refresh,
@@ -192,6 +212,12 @@ export function useTasks() {
       await updateTaskMutation.mutateAsync({
         id,
         body: { completed, completion_percent: completed ? 100 : 0 },
+      });
+    },
+    rescheduleTask: async (id: number, scheduled_for_date: string | null) => {
+      await updateTaskMutation.mutateAsync({
+        id,
+        body: { scheduled_for_date },
       });
     },
   };

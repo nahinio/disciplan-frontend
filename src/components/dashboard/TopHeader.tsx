@@ -1,4 +1,4 @@
-import { Bell, GraduationCap, Users, Info, Check, RefreshCw, Trophy, Settings, LogOut, ShieldCheck } from "lucide-react";
+import { Bell, GraduationCap, Users, Info, Check, RefreshCw, Trophy, Settings, LogOut, ShieldCheck, ChevronRight, Award, Flame } from "lucide-react";
 import { ScheduleEventButton } from "./ScheduleEventButton";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -19,8 +19,72 @@ const nav: { label: string; to: string }[] = [
   { label: "Forum", to: "/forum" },
   { label: "Doubts", to: "/doubts" },
   { label: "Leaderboard", to: "/leaderboard" },
-  { label: "Profile", to: "/profile" },
 ];
+
+function MenuItem({
+  to,
+  params,
+  onClick,
+  icon,
+  label,
+  danger,
+}: {
+  to?: string;
+  params?: any;
+  onClick?: () => void;
+  icon: React.ReactNode;
+  label: string;
+  danger?: boolean;
+}) {
+  const className = cn(
+    "flex items-center justify-between w-full px-4 py-1.5 text-sm font-semibold rounded-xl transition-all duration-300 group text-left relative overflow-hidden",
+    danger
+      ? "text-rose-600 hover:bg-gradient-to-r hover:from-rose-500/10 hover:to-rose-500/5 dark:hover:from-rose-950/20 dark:hover:to-rose-950/5"
+      : "text-slate-600 dark:text-slate-300 hover:bg-gradient-to-r hover:from-slate-50 hover:to-transparent dark:hover:from-slate-800/40 dark:hover:to-transparent hover:text-rose-600 dark:hover:text-rose-400"
+  );
+
+  const content = (
+    <>
+      {/* Left indicator bar */}
+      <span className={cn(
+        "absolute left-0 top-2 bottom-2 w-1 rounded-r-md transition-all duration-300 origin-left scale-x-0 group-hover:scale-x-100 shrink-0",
+        danger ? "bg-rose-500" : "bg-rose-600 dark:bg-rose-500"
+      )} />
+      
+      <div className="flex items-center gap-3 relative z-10">
+        <span
+          className={cn(
+            "p-2 rounded-xl transition-all duration-300 shrink-0 border border-transparent",
+            danger
+              ? "bg-rose-500/10 text-rose-500 group-hover:scale-110 group-hover:rotate-3 group-hover:bg-rose-500/20"
+              : "bg-slate-50 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 group-hover:bg-rose-500/10 group-hover:text-rose-600 dark:group-hover:bg-rose-500/20 dark:group-hover:text-rose-400 group-hover:scale-110 group-hover:-rotate-3 group-hover:border-rose-500/10"
+          )}
+        >
+          {icon}
+        </span>
+        <span className="tracking-tight font-semibold text-[13px]">{label}</span>
+      </div>
+      {!danger && (
+        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-rose-600 dark:group-hover:text-rose-400 group-hover:translate-x-1 transition-all duration-300 shrink-0 relative z-10" />
+      )}
+    </>
+  );
+
+  if (to) {
+    return (
+      <Link to={to} params={params} className={className}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button onClick={onClick} className={cn(className, "cursor-pointer")}>
+      {content}
+    </button>
+  );
+}
+
 
 export function TopHeader({ onMenu }: { onMenu?: () => void }) {
   const navigate = useNavigate();
@@ -149,16 +213,14 @@ export function TopHeader({ onMenu }: { onMenu?: () => void }) {
               ? pathname.startsWith("/doubts")
               : n.to === "/leaderboard"
                 ? pathname.startsWith("/leaderboard")
-                : n.to === "/profile"
-                  ? pathname.startsWith("/profile")
-                  : (isAdmin
-                      ? (pathname === "/dashboard" && searchView === (n as any).search?.view)
-                      : (
-                          (n.to === "/dashboard" && n.label === "Dashboard" && pathname === "/dashboard") ||
-                          (n.to === "/courses" && pathname.startsWith("/courses")) ||
-                          (n.to === "/teams" && pathname.startsWith("/teams"))
-                        )
-                    );
+                : (isAdmin
+                    ? (pathname === "/dashboard" && searchView === (n as any).search?.view)
+                    : (
+                        (n.to === "/dashboard" && n.label === "Dashboard" && pathname === "/dashboard") ||
+                        (n.to === "/courses" && pathname.startsWith("/courses")) ||
+                        (n.to === "/teams" && pathname.startsWith("/teams"))
+                      )
+                  );
           return (
             <Link
               key={n.label}
@@ -289,221 +351,202 @@ export function TopHeader({ onMenu }: { onMenu?: () => void }) {
               {renderAvatar(profile.photo, profile.name)}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 p-5 bg-popover/98 backdrop-blur-md border border-border shadow-xl rounded-2xl flex flex-col gap-4 text-left">
+          <PopoverContent align="end" className="w-80 p-0 overflow-hidden bg-popover/95 backdrop-blur-xl border border-border shadow-2xl rounded-2xl flex flex-col text-left">
             {isAdmin ? (
               <>
-                <div className="flex items-center gap-3.5">
-                  {renderAvatar(profile.photo, profile.name, "w-12 h-12 text-sm")}
-                  <div className="min-w-0">
-                    <h3 className="font-display text-lg font-bold leading-tight text-foreground truncate">
-                      {profile.name || "Administrator"}
-                    </h3>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{profile.email}</p>
-                    <div className="inline-flex items-center gap-1 mt-2 px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/30 text-rose-700 dark:text-rose-400 text-[10px] font-bold">
-                      <ShieldCheck className="w-3 h-3 shrink-0" />
-                      Administrator
+                <div className="relative p-5 pb-4 bg-gradient-to-br from-rose-500/5 via-amber-500/5 to-transparent rounded-t-2xl border-b border-slate-100/80 dark:border-slate-800/40">
+                  <div className="flex items-start gap-4">
+                    <div className="relative group shrink-0">
+                      <div className="absolute -inset-0.5 bg-gradient-to-tr from-rose-500 to-amber-500 rounded-full opacity-60 blur-sm group-hover:opacity-100 transition duration-500" />
+                      <div className="relative block rounded-full bg-background p-0.5">
+                        {renderAvatar(profile.photo, profile.name, "w-14 h-14 text-sm")}
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <h3 className="font-display text-base font-extrabold leading-tight text-slate-800 dark:text-slate-100 truncate">
+                        {profile.name || "Administrator"}
+                      </h3>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5 font-medium">{profile.email}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] font-bold border border-rose-500/20">
+                          <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                          Administrator
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  You are signed in to the admin console. Update your display name and profile photo in Settings.
-                </p>
-                <div className="flex items-center justify-between pt-3 border-t border-border">
-                  <Link
+                <div className="px-4 pt-3.5 pb-1">
+                  <div className="p-3 bg-gradient-to-br from-slate-50/50 to-white/30 dark:from-slate-800/40 dark:to-slate-800/20 rounded-xl border border-slate-100 dark:border-slate-800/50 shadow-sm">
+                    <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 mb-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">System Access</span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                      You are signed in to the admin console. Monitor activities and configure system parameters.
+                    </p>
+                  </div>
+                </div>
+                <div className="px-3.5 pb-3.5 pt-2 flex flex-col gap-0.5">
+                  <MenuItem
                     to="/settings"
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted rounded-xl transition"
-                  >
-                    <Settings className="w-4 h-4" />
-                    Edit profile
-                  </Link>
-                  <button
+                    icon={<Settings className="w-4 h-4" />}
+                    label="Settings"
+                  />
+                  <div className="h-px bg-border/60 my-2" />
+                  <MenuItem
                     onClick={logout}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose hover:bg-rose-soft/20 rounded-xl transition cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Log Out
-                  </button>
+                    icon={<LogOut className="w-4 h-4" />}
+                    label="Log Out"
+                    danger
+                  />
                 </div>
               </>
             ) : isFaculty ? (
               <>
-                <div className="flex items-center gap-3.5">
-                  {renderAvatar(profile.photo, profile.name, "w-12 h-12 text-sm")}
-                  <div className="min-w-0">
-                    <h3 className="font-display text-lg font-bold leading-tight text-foreground truncate">
-                      {profile.name}
-                    </h3>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{profile.email}</p>
-                    <div className="inline-flex items-center gap-1 mt-2 px-2.5 py-0.5 rounded-full bg-rose-50 border border-rose-100 text-rose-700 text-[10px] font-bold">
-                      <GraduationCap className="w-3 h-3 shrink-0" />
-                      Faculty
+                <div className="relative p-5 pb-4 bg-gradient-to-br from-rose-500/5 via-amber-500/5 to-transparent rounded-t-2xl border-b border-slate-100/80 dark:border-slate-800/40">
+                  <div className="flex items-start gap-4">
+                    <div className="relative group shrink-0">
+                      <div className="absolute -inset-0.5 bg-gradient-to-tr from-rose-500 to-amber-500 rounded-full opacity-60 blur-sm group-hover:opacity-100 transition duration-500" />
+                      <div className="relative block rounded-full bg-background p-0.5">
+                        {renderAvatar(profile.photo, profile.name, "w-14 h-14 text-sm")}
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <h3 className="font-display text-base font-extrabold leading-tight text-slate-800 dark:text-slate-100 truncate">
+                        {profile.name}
+                      </h3>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5 font-medium">{profile.email}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold border border-indigo-500/20">
+                          <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                          Faculty
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {profile.sections?.length ?? 0} teaching section
-                  {(profile.sections?.length ?? 0) === 1 ? "" : "s"} assigned.
-                  {profile.trimester ? ` · ${profile.trimester}` : ""}
-                </p>
-                <div className="flex items-center justify-between pt-3 border-t border-border">
-                  <Link
+                <div className="px-4 pt-3.5 pb-1">
+                  <div className="p-3 bg-gradient-to-br from-slate-50/50 to-white/30 dark:from-slate-800/40 dark:to-slate-800/20 rounded-xl border border-slate-100 dark:border-slate-800/50 shadow-sm">
+                    <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 mb-1.5">
+                      <Users className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Teaching Assignment</span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold leading-relaxed">
+                      {profile.sections?.length ?? 0} teaching section{(profile.sections?.length ?? 0) === 1 ? "" : "s"} assigned.
+                      {profile.trimester ? ` · ${profile.trimester}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <div className="px-3.5 pb-3.5 pt-2 flex flex-col gap-0.5">
+                  <MenuItem
                     to="/settings"
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted rounded-xl transition"
-                  >
-                    <Settings className="w-4 h-4" />
-                    Settings
-                  </Link>
-                  <button
+                    icon={<Settings className="w-4 h-4" />}
+                    label="Settings"
+                  />
+                  <div className="h-px bg-border/60 my-2" />
+                  <MenuItem
                     onClick={logout}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose hover:bg-rose-soft/20 rounded-xl transition cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Log Out
-                  </button>
+                    icon={<LogOut className="w-4 h-4" />}
+                    label="Log Out"
+                    danger
+                  />
                 </div>
               </>
             ) : (
               <>
-                <div className="flex items-center gap-3.5">
-                  {profileReady && profile.id ? (
-                    <Link to="/profile/$userId" params={{ userId: String(profile.id) }}>
-                      {renderAvatar(profile.photo, profile.name, "w-12 h-12 text-sm")}
-                    </Link>
-                  ) : (
-                    renderAvatar(profile.photo, profile.name, "w-12 h-12 text-sm")
-                  )}
-                  <div className="min-w-0">
-                    {profileReady && profile.id ? (
-                      <Link
-                        to="/profile/$userId"
-                        params={{ userId: String(profile.id) }}
-                        className="font-display text-lg font-bold leading-tight text-foreground truncate hover:text-rose-600 transition block"
-                      >
-                        {profile.name}
-                      </Link>
-                    ) : (
-                      <h3 className="font-display text-lg font-bold leading-tight text-foreground truncate">
-                        {profile.name}
-                      </h3>
-                    )}
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{profile.email}</p>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      <TierBadgePill tierCode={profile.tierCode} tierLabel={profile.tier} />
-                      {profile.streaks
-                        .filter((s) => s.current > 0)
-                        .map((s) => (
-                          <span
-                            key={s.code}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-100 text-rose-700 text-[10px] font-bold"
-                          >
-                            {s.code === "iron_will" ? "Iron Will" : "Activity"} {s.current}d
-                          </span>
-                        ))}
+                <div className="relative p-5 pb-4 bg-gradient-to-br from-rose-500/5 via-amber-500/5 to-transparent rounded-t-2xl border-b border-slate-100/80 dark:border-slate-800/40">
+                  <div className="flex items-start gap-4">
+                    <div className="relative group shrink-0">
+                      <div className="absolute -inset-0.5 bg-gradient-to-tr from-rose-500 to-amber-500 rounded-full opacity-60 blur-sm group-hover:opacity-100 transition duration-500" />
+                      {profileReady && profile.id ? (
+                        <Link to="/profile/$userId" params={{ userId: String(profile.id) }} className="relative block rounded-full bg-background p-0.5">
+                          {renderAvatar(profile.photo, profile.name, "w-14 h-14 text-sm")}
+                        </Link>
+                      ) : (
+                        <div className="relative block rounded-full bg-background p-0.5">
+                          {renderAvatar(profile.photo, profile.name, "w-14 h-14 text-sm")}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      {profileReady && profile.id ? (
+                        <Link
+                          to="/profile/$userId"
+                          params={{ userId: String(profile.id) }}
+                          className="font-display text-base font-extrabold leading-tight text-slate-800 dark:text-slate-100 truncate hover:text-rose-600 dark:hover:text-rose-400 transition block"
+                        >
+                          {profile.name}
+                        </Link>
+                      ) : (
+                        <h3 className="font-display text-base font-extrabold leading-tight text-slate-800 dark:text-slate-100 truncate">
+                          {profile.name}
+                        </h3>
+                      )}
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5 font-medium">{profile.email}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <TierBadgePill tierCode={profile.tierCode} tierLabel={profile.tier} />
+                        {profile.streaks
+                          .filter((s) => s.current > 0)
+                          .map((s) => (
+                            <span
+                              key={s.code}
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-extrabold border border-amber-500/20 shadow-sm"
+                            >
+                              <Flame className="w-3 h-3 text-amber-500 shrink-0 fill-amber-500/20" />
+                              {s.code === "iron_will" ? "Will" : "Streak"} {s.current}d
+                            </span>
+                          ))}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-2 py-2 border-y border-border">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-muted-foreground">Progress to Next Tier</span>
-                    <span className="font-semibold text-foreground font-display text-sm tabular-nums">
-                      {profile.points} / {profile.nextTierPoints || 1} XP
-                    </span>
-                  </div>
-                  {profile.nextTierPoints > 0 && (
-                    <>
-                      <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                {profile.nextTierPoints > 0 && (
+                  <div className="px-4 pt-3.5 pb-1">
+                    <div className="p-3 bg-gradient-to-br from-slate-50/50 to-white/30 dark:from-slate-800/40 dark:to-slate-800/20 rounded-xl border border-slate-100 dark:border-slate-800/50 relative overflow-hidden shadow-sm animate-fade-in">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                        <span>Level Progress</span>
+                        <span className="text-slate-700 dark:text-slate-300 font-extrabold tracking-normal">
+                          {profile.points} / {profile.nextTierPoints} XP
+                        </span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden relative">
                         <div
-                          className="h-full bg-gradient-to-r from-rose to-amber-500 rounded-full transition-all duration-500"
+                          className="h-full bg-gradient-to-r from-rose-500 via-pink-500 to-amber-500 rounded-full transition-all duration-500 relative"
                           style={{ width: `${Math.min(100, (profile.points / profile.nextTierPoints) * 100)}%` }}
                         />
                       </div>
-                      <p className="text-[10px] text-muted-foreground text-right font-medium">
-                        {Math.max(0, profile.nextTierPoints - profile.points)} XP until next tier
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium text-right">
+                        {Math.max(0, profile.nextTierPoints - profile.points)} XP until next level
                       </p>
-                    </>
-                  )}
-                </div>
-
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <Link
-                      to="/leaderboard"
-                      className="text-xs font-bold text-foreground flex items-center gap-1 uppercase tracking-wider font-display hover:text-rose-600 transition"
-                    >
-                      <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                      Leaderboard
-                    </Link>
-                    <div className="flex items-center gap-1 bg-muted p-0.5 rounded-full">
-                      <button
-                        onClick={() => setLeaderboardTab("today")}
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-tight transition cursor-pointer ${
-                          leaderboardTab === "today" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        Today
-                      </button>
-                      <button
-                        onClick={() => setLeaderboardTab("alltime")}
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-tight transition cursor-pointer ${
-                          leaderboardTab === "alltime" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        All Time
-                      </button>
                     </div>
                   </div>
+                )}
 
-                  <div className="space-y-1.5">
-                    {(leaderboardTab === "today" ? todayLeaderboard : allTimeLeaderboard).slice(0, 5).map((entry) => (
-                      <Link
-                        key={entry.rank + "-" + entry.name}
-                        to="/profile/$userId"
-                        params={{ userId: String(entry.userId ?? profile.id) }}
-                        className={`flex items-center justify-between p-1.5 rounded-xl text-xs transition ${
-                          entry.isUser
-                            ? "bg-rose-soft/10 border border-rose/10 font-bold"
-                            : "hover:bg-muted/40 font-medium"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={`w-4 text-center text-xs font-extrabold font-display ${
-                            entry.rank === 1 ? "text-amber-500 font-black" :
-                            entry.rank === 2 ? "text-slate-400" :
-                            entry.rank === 3 ? "text-amber-700" : "text-muted-foreground"
-                          }`}>
-                            #{entry.rank}
-                          </span>
-                          <span className="truncate text-foreground">{entry.name} {entry.isUser && "(You)"}</span>
-                        </div>
-                        <span className="text-muted-foreground font-display text-[10px] font-semibold">{entry.points.toLocaleString()} XP</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-3 border-t border-border mt-0.5">
-                  <Link
+                <div className="px-3.5 pb-3.5 pt-2 flex flex-col gap-0.5">
+                  <MenuItem
+                    to="/leaderboard"
+                    icon={<Trophy className="w-4 h-4" />}
+                    label="Leaderboard"
+                  />
+                  <MenuItem
                     to="/achievements"
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted rounded-xl transition"
-                  >
-                    <Trophy className="w-4 h-4" />
-                    Achievements
-                  </Link>
-                  <Link
+                    icon={<Award className="w-4 h-4" />}
+                    label="Achievements"
+                  />
+                  <MenuItem
                     to="/settings"
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted rounded-xl transition"
-                  >
-                    <Settings className="w-4 h-4" />
-                    Settings
-                  </Link>
-                  <button
+                    icon={<Settings className="w-4 h-4" />}
+                    label="Settings"
+                  />
+                  <div className="h-px bg-border/60 my-2" />
+                  <MenuItem
                     onClick={logout}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose hover:bg-rose-soft/20 rounded-xl transition cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Log Out
-                  </button>
+                    icon={<LogOut className="w-4 h-4" />}
+                    label="Log Out"
+                    danger
+                  />
                 </div>
               </>
             )}
