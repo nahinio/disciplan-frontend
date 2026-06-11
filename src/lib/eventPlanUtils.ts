@@ -46,6 +46,7 @@ export function planToEventForm(plan: Record<string, unknown>): EventForm {
 
   const { date, time } = parseDateTime(deadlineSource);
   const recurrence = (plan.recurrence as Array<Record<string, unknown>> | undefined) ?? [];
+  const recurrenceDays = recurrence.map((r) => Number(r.day_of_week));
   const slot = recurrence[0];
 
   if (type === "Personal" && mode === "recurring_weekly") {
@@ -68,7 +69,7 @@ export function planToEventForm(plan: Record<string, unknown>): EventForm {
     priority: PRIORITY_TO_LABEL[String(plan.priority_code ?? "medium")] ?? "Med",
     personalMode: mode === "recurring_weekly" ? "weekly" : "deadline",
     gradeComponentId: plan.grade_component_id ? Number(plan.grade_component_id) : undefined,
-    recurrenceDay: slot?.day_of_week != null ? Number(slot.day_of_week) : 1,
+    recurrenceDays: recurrenceDays.length > 0 ? recurrenceDays : [1],
     recurrenceTime: slot?.starts_time ? String(slot.starts_time).slice(0, 5) : "07:00",
   };
 }

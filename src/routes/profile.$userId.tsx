@@ -14,6 +14,7 @@ import { achievementCaption } from "@/lib/achievementCaptions";
 import { cn } from "@/lib/utils";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { AchievementBadge } from "@/components/gamification/AchievementBadge";
 
 export const Route = createFileRoute("/profile/$userId")({
   ssr: appRouteSsr,
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/profile/$userId")({
     requireAuth();
   },
   head: () => ({
-    meta: [{ title: "DisciPlan — Student Profile" }],
+    meta: [{ title: "DisciPlan — Profile" }],
   }),
   component: ProfilePage,
 });
@@ -53,7 +54,7 @@ function ProfilePage() {
     return (
       <Shell>
         <div className="py-16 text-center space-y-3">
-          <p className="text-sm text-muted-foreground">This student profile is unavailable.</p>
+          <p className="text-sm text-muted-foreground">This profile is unavailable.</p>
           <Link to="/leaderboard" className="text-sm font-semibold text-rose-600 hover:underline">
             Back to leaderboard
           </Link>
@@ -63,44 +64,45 @@ function ProfilePage() {
   }
 
   const p = profileQuery.data;
-  const heatmap = p.heatmap as {
+  const heatmap = p.role_code === "student" ? (p.heatmap as {
     days: { date: string; count: number }[];
     total_completions: number;
     active_days: number;
     max_count: number;
-  };
+  }) : null;
 
   return (
     <Shell>
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 space-y-8">
-        <header className="flex flex-col sm:flex-row gap-5 items-start">
-          <div className="flex w-full justify-end sm:hidden">
-            <RefreshButton onClick={refreshProfilePage} loading={isRefreshing || profileQuery.isFetching} />
-          </div>
+        <header className="relative flex flex-col sm:flex-row gap-5 items-start w-full">
           {hasCustomAvatar(p.avatar_url) ? (
             <img
               src={p.avatar_url}
               alt=""
-              className="w-20 h-20 rounded-full object-cover border-2 border-border"
+              className="w-20 h-20 rounded-full object-cover border-2 border-border shrink-0"
             />
           ) : (
             <div
               className={cn(
-                "w-20 h-20 rounded-full bg-gradient-to-br",
-                getRoleAvatarGradient("student")
+                "w-20 h-20 rounded-full bg-gradient-to-br shrink-0",
+                getRoleAvatarGradient((p.role_code as any) || "student")
               )}
             />
           )}
-          <div className="flex-1 min-w-0">
-            <div className="hidden sm:flex justify-end mb-2">
-              <RefreshButton onClick={refreshProfilePage} loading={isRefreshing || profileQuery.isFetching} />
-            </div>
+          <div className="flex-1 min-w-0 sm:pr-24">
             <div className="flex flex-wrap items-center gap-2.5">
-              <TierBadge
-                tierCode={p.tier_code as string | undefined}
-                tierLabel={p.tier_label as string | undefined}
-                size="md"
-              />
+              {p.role_code === "student" && (
+                <TierBadge
+                  tierCode={p.tier_code as string | undefined}
+                  tierLabel={p.tier_label as string | undefined}
+                  size="md"
+                />
+              )}
+              {p.role_code === "faculty" && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#7d9b76] text-white uppercase tracking-wider">
+                  Faculty
+                </span>
+              )}
               <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-tight">
                 {p.display_name}
               </h1>
@@ -117,71 +119,81 @@ function ProfilePage() {
               <p className="text-sm text-foreground/85 mt-2 max-w-xl leading-relaxed">{p.bio}</p>
             )}
           </div>
+          <div className="absolute top-0 right-0 z-10">
+            <RefreshButton onClick={refreshProfilePage} loading={isRefreshing || profileQuery.isFetching} />
+          </div>
         </header>
 
-        <ProfileGamificationStats
-          tierLabel={p.tier_label as string | undefined}
-          tierCode={p.tier_code as string | undefined}
-          totalPoints={Number(p.total_points ?? 0)}
-          rank={p.rank as number | null | undefined}
-          nextTierPoints={p.next_tier_points as number | null | undefined}
-          nextTierLabel={p.next_tier_label as string | null | undefined}
-        />
+        {p.role_code === "student" && heatmap && (
+          <>
+            <ProfileGamificationStats
+              tierLabel={p.tier_label as string | undefined}
+              tierCode={p.tier_code as string | undefined}
+              totalPoints={Number(p.total_points ?? 0)}
+              rank={p.rank as number | null | undefined}
+              nextTierPoints={p.next_tier_points as number | null | undefined}
+              nextTierLabel={p.next_tier_label as string | null | undefined}
+            />
 
-        <section className="rounded-2xl border border-rose-100/60 bg-white/70 p-4 sm:p-5">
-          <TaskHeatmap
-            days={heatmap.days}
-            maxCount={heatmap.max_count}
-            totalCompletions={heatmap.total_completions}
-            activeDays={heatmap.active_days}
-          />
-        </section>
+            <section className="rounded-2xl border border-rose-100/60 bg-white/70 p-4 sm:p-5">
+              <TaskHeatmap
+                days={heatmap.days}
+                maxCount={heatmap.max_count}
+                totalCompletions={heatmap.total_completions}
+                activeDays={heatmap.active_days}
+              />
+            </section>
 
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Medal className="w-4 h-4 text-rose-600" />
-              Achievements
-            </h2>
-            {isOwnProfile && (
-              <Link
-                to="/achievements"
-                className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 transition"
-              >
-                View all →
-              </Link>
-            )}
-          </div>
-          {(p.badges as { code: string; label: string; icon_url?: string; caption?: string }[]).length ===
-          0 ? (
-            <p className="text-sm text-muted-foreground italic py-2">No badges unlocked yet.</p>
-          ) : (
-            <div className="grid sm:grid-cols-2 gap-2.5">
-              {(p.badges as { code: string; label: string; icon_url?: string; caption?: string }[]).map(
-                (b) => {
-                  const caption = achievementCaption(b.code, b.caption);
-                  return (
-                    <div
-                      key={b.code}
-                      className="flex gap-3 p-3.5 rounded-2xl border border-rose-100/80 bg-gradient-to-br from-rose-50/50 to-white"
-                      title={caption}
-                    >
-                      {b.icon_url && (
-                        <img src={b.icon_url} alt="" className="w-11 h-11 object-contain shrink-0" />
-                      )}
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="text-xs font-bold text-foreground leading-tight">{b.label}</p>
-                        <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
-                          {caption}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
+            <section className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Medal className="w-4 h-4 text-rose-600" />
+                  Achievements
+                </h2>
+                {isOwnProfile && (
+                  <Link
+                    to="/achievements"
+                    className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 transition"
+                  >
+                    View all →
+                  </Link>
+                )}
+              </div>
+              {(p.badges as { code: string; label: string; icon_url?: string; caption?: string }[]).length ===
+              0 ? (
+                <p className="text-sm text-muted-foreground italic py-2">No badges unlocked yet.</p>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-2.5">
+                  {(p.badges as { code: string; label: string; icon_url?: string; caption?: string }[]).map(
+                    (b) => {
+                      const caption = achievementCaption(b.code, b.caption);
+                      return (
+                        <div
+                          key={b.code}
+                          className="flex gap-3 p-3.5 rounded-2xl border border-rose-100/80 bg-gradient-to-br from-rose-50/50 to-white"
+                          title={caption}
+                        >
+                          <AchievementBadge
+                            code={b.code}
+                            iconUrl={b.icon_url}
+                            isUnlocked={true}
+                            size="sm"
+                          />
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="text-xs font-bold text-foreground leading-tight">{b.label}</p>
+                            <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
+                              {caption}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
               )}
-            </div>
-          )}
-        </section>
+            </section>
+          </>
+        )}
 
         <section className="space-y-3">
           <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1.5">

@@ -75,9 +75,9 @@ export function ExamStudyLinks({
         label="Blog"
       />
       <StudyLinkPill
-        to={section ? "/courses/$courseCode/section" : "/courses/$courseCode"}
+        to="/courses/$courseCode"
         params={{ courseCode: encoded }}
-        search={section ? { section, tab: "section-resources" } : { tab: "practice" }}
+        search={{ tab: "practice" }}
         tone="practice"
         icon={<Target className="w-3.5 h-3.5 shrink-0" strokeWidth={2.25} />}
         label="Practice"

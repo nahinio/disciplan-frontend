@@ -57,6 +57,7 @@ export interface SectionDoubt {
   reported?: boolean;
   reportReason?: string;
   reportDetails?: string;
+  authorUserId?: number;
 }
 
 export interface ChatMessage {

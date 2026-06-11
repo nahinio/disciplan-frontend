@@ -8,9 +8,10 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { achievementCaption, FAMILY_INTRO } from "@/lib/achievementCaptions";
-import { ArrowLeft, Lock } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { AchievementBadge } from "@/components/gamification/AchievementBadge";
 
 export const Route = createFileRoute("/achievements")({
   ssr: appRouteSsr,
@@ -137,19 +138,13 @@ function AchievementsPage() {
                               : "border-border/70 bg-card/50"
                           )}
                         >
-                          <div className="relative shrink-0 w-12 h-12">
-                            <img
-                              src={item.icon_url}
-                              alt=""
-                              className={cn(
-                                "w-full h-full object-contain",
-                                !item.is_unlocked && "grayscale opacity-50"
-                              )}
-                            />
-                            {!item.is_unlocked && (
-                              <Lock className="w-3.5 h-3.5 absolute -bottom-0.5 -right-0.5 text-muted-foreground" />
-                            )}
-                          </div>
+                          <AchievementBadge
+                            code={item.code}
+                            family={item.family}
+                            iconUrl={item.icon_url}
+                            isUnlocked={item.is_unlocked}
+                            size="md"
+                          />
                           <div className="min-w-0 flex-1 space-y-1">
                             <p className="text-xs font-bold leading-tight text-foreground">{item.label}</p>
                             <p className="text-[11px] text-muted-foreground leading-snug">{caption}</p>
@@ -180,3 +175,4 @@ function AchievementsPage() {
     </div>
   );
 }
+

@@ -6,6 +6,7 @@ export async function invalidatePlannerData(qc: QueryClient) {
   await Promise.all([
     qc.invalidateQueries({ queryKey: queryKeys.tasks.all }),
     qc.invalidateQueries({ queryKey: queryKeys.tasks.today }),
+    qc.invalidateQueries({ queryKey: queryKeys.tasks.plan }),
     qc.invalidateQueries({ queryKey: queryKeys.tasks.eventPlans }),
     qc.invalidateQueries({ queryKey: queryKeys.calendar.events(true) }),
     qc.invalidateQueries({ queryKey: queryKeys.calendar.events(false) }),

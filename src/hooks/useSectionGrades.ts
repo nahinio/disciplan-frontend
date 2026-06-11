@@ -167,6 +167,25 @@ export function useSectionGrades(courseCode: string, sectionLabel: string) {
         api.createGradeComponent(courseCode, sectionLabel, body)
       );
     },
+    deleteComponent: async (componentId: number) => {
+      await gradeMutation.mutateAsync(() =>
+        api.deleteGradeComponent(componentId)
+      );
+    },
+    updateComponent: async (
+      componentId: number,
+      body: {
+        label?: string;
+        max_score?: number;
+        weight_percent?: number;
+        sort_order?: number;
+        is_active?: boolean;
+      }
+    ) => {
+      await gradeMutation.mutateAsync(() =>
+        api.updateGradeComponent(componentId, body)
+      );
+    },
     saveComponentGrade,
     saveProjectGrade: async (
       studentId: number,

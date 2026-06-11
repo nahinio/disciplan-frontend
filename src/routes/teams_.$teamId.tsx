@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { appRouteSsr, requireAuth } from "@/lib/routeAuth";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { RoleBadge } from "@/components/blogs/RoleBadge";
 import {
   ArrowLeft,
   Plus,
@@ -18,6 +19,8 @@ import {
   AlertTriangle,
   MessageSquare,
   Send,
+  Minus,
+  Maximize2
 } from "lucide-react";
 import { z } from "zod";
 import { TopHeader } from "@/components/dashboard/TopHeader";
@@ -78,6 +81,20 @@ function TeamDetailPage() {
   const { profile } = useUserStats();
   const { messages: teamChatMessages, sendMessage: sendTeamChat, wsConnected } = useTeamChat(teamId);
   const [teamChatInput, setTeamChatInput] = useState("");
+  const chatBottomRef = useRef<HTMLDivElement | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
+
+  useEffect(() => {
+    if (isChatOpen && !isChatMinimized && chatBottomRef.current) {
+      const timer = setTimeout(() => {
+        if (chatBottomRef.current) {
+          chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [teamChatMessages, isChatOpen, isChatMinimized]);
   const {
     team,
     loading,
@@ -337,13 +354,7 @@ function TeamDetailPage() {
                     <Megaphone className="w-3.5 h-3.5" />
                     Announcements
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="chat"
-                    className="inline-flex items-center gap-1.5 px-3 py-1 h-7 rounded-md text-xs font-semibold transition data-[state=active]:bg-white data-[state=active]:text-slate-800 data-[state=active]:shadow-sm text-slate-500 hover:text-slate-700 cursor-pointer"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    Team Chat
-                  </TabsTrigger>
+
                 </TabsList>
 
                 {/* 1. TASKS TAB CONTENT */}
@@ -655,65 +666,7 @@ function TeamDetailPage() {
                   )}
                 </TabsContent>
 
-                <TabsContent value="chat" className="mt-0 focus-visible:outline-none">
-                  <div className="rounded-2xl border border-[#dce5d4] bg-white shadow-sm flex flex-col h-[500px] overflow-hidden">
-                    <header className="p-4 border-b border-slate-100 bg-[#faf8f3] flex items-center justify-between shrink-0">
-                      <div>
-                        <h3 className="font-display text-sm font-bold text-slate-800">Team project chat</h3>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Collaborate with your teammates in real time.</p>
-                      </div>
-                      <span className={`text-[9px] uppercase tracking-widest font-black ${wsConnected ? "text-emerald-600" : "text-amber-600"}`}>
-                        {wsConnected ? "Live" : "Syncing"}
-                      </span>
-                    </header>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[#faf8f3]/25">
-                      {teamChatMessages.length === 0 ? (
-                        <p className="text-xs text-slate-400 text-center py-10">No messages yet. Say hello to your team!</p>
-                      ) : (
-                        teamChatMessages.map((msg) => (
-                          <div
-                            key={msg.id}
-                            className={cn(
-                              "max-w-[80%] rounded-2xl px-3 py-2 text-xs",
-                              msg.author.name === profile.name
-                                ? "ml-auto bg-[#7d9b76] text-white"
-                                : "bg-white border border-[#dce5d4] text-slate-800"
-                            )}
-                          >
-                            <p className="text-[9px] font-bold opacity-80 mb-0.5">{msg.author.name}</p>
-                            <p className="whitespace-pre-wrap">{msg.content}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <form
-                      className="p-3 border-t border-slate-100 flex gap-2 shrink-0"
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (!teamChatInput.trim()) return;
-                        try {
-                          await sendTeamChat(teamChatInput.trim());
-                          setTeamChatInput("");
-                        } catch {
-                          toast.error("Could not send message.");
-                        }
-                      }}
-                    >
-                      <input
-                        value={teamChatInput}
-                        onChange={(e) => setTeamChatInput(e.target.value)}
-                        placeholder="Message your team…"
-                        className="flex-1 h-9 px-3 rounded-xl border border-[#dce5d4] text-xs"
-                      />
-                      <button
-                        type="submit"
-                        className="h-9 w-9 rounded-xl bg-[#7d9b76] text-white grid place-items-center cursor-pointer"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
-                  </div>
-                </TabsContent>
+
               </Tabs>
             </div>
 
@@ -1088,6 +1041,150 @@ function TeamDetailPage() {
       </AnimatePresence>
 
       <MobileTabBar />
+
+      {/* Floating Team Chat FAB & Widget */}
+      {!isChatOpen && (
+        <button
+          onClick={() => {
+            setIsChatOpen(true);
+            setIsChatMinimized(false);
+          }}
+          className="fixed bottom-20 md:bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-[#7d9b76] text-white shadow-lg hover:shadow-xl hover:bg-[#6b8865] active:scale-95 hover:scale-105 transition-all duration-200 cursor-pointer focus:outline-none"
+          title="Open Team Chat"
+        >
+          <MessageSquare className="w-6 h-6" />
+        </button>
+      )}
+
+      {isChatOpen && (
+        <div
+          className={cn(
+            "fixed bottom-20 md:bottom-6 right-6 z-50 w-[360px] sm:w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-2xl border border-[#dce5d4] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out",
+            isChatMinimized ? "h-auto" : "h-[500px] max-h-[calc(105vh-15rem)] md:max-h-[calc(100vh-6rem)]"
+          )}
+        >
+          {/* Chat Info Header */}
+          <header
+            onClick={() => setIsChatMinimized((prev) => !prev)}
+            className="p-3 border-b border-slate-100 bg-[#faf8f3] flex items-center justify-between shrink-0 select-none cursor-pointer hover:bg-[#faf8f3]/80 transition"
+          >
+            <div>
+              <h3 className="font-display text-xs sm:text-sm font-bold text-slate-800">
+                Team Chat
+              </h3>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {wsConnected ? (
+                  <span className="text-emerald-600 font-semibold">Live connection</span>
+                ) : (
+                  <span className="text-amber-600 font-semibold">Syncing...</span>
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setIsChatMinimized((prev) => !prev)}
+                className="p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition cursor-pointer animate-none"
+                title={isChatMinimized ? "Expand" : "Minimize"}
+              >
+                {isChatMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition cursor-pointer animate-none"
+                title="Close"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </header>
+
+          {/* Expanded view: Message Logs & Input Form */}
+          {!isChatMinimized && (
+            <>
+              {/* Message Logs */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#faf8f3]/25 scrollbar-thin">
+                {teamChatMessages.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-10 font-medium font-sans">No messages yet. Say hello to your team!</p>
+                ) : (
+                  teamChatMessages.map((msg) => {
+                    const isSelf = msg.author.name === profile.name;
+                    const isLeader = team && msg.author.name.toLowerCase() === team.leaderName.toLowerCase();
+                    if (isSelf) {
+                      return (
+                        <div key={msg.id} className="flex flex-col items-end ml-auto max-w-[85%] animate-none">
+                          <span className="text-[8px] text-slate-400 mb-1 mr-1 select-none">
+                            {msg.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          <div className="rounded-2xl rounded-tr-none px-3 py-2 text-xs text-[#2a4e25] bg-[#eef5ed] border border-[#d2e4ce] shadow-sm">
+                            <p className="leading-normal whitespace-pre-wrap font-normal text-[11px]">{msg.content}</p>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div key={msg.id} className="flex gap-2 items-start max-w-[85%] animate-none">
+                          <div
+                            className={cn(
+                              "flex items-center justify-center w-7 h-7 rounded-full text-white font-bold text-[9px] shrink-0 shadow-sm mt-3.5 select-none",
+                              isLeader ? "bg-amber-500" : "bg-[#7d9b76]"
+                            )}
+                            title={msg.author.name}
+                          >
+                            {msg.author.initials}
+                          </div>
+                          <div className="flex flex-col items-start">
+                            <div className="flex items-baseline gap-1.5 mb-1 text-[9px] select-none">
+                              <span className="font-bold text-slate-700">{msg.author.name}</span>
+                              {isLeader && <span className="text-[8px] font-bold text-amber-600 bg-amber-50 px-1 rounded-sm">Leader</span>}
+                              <span className="text-slate-400 text-[8px]">
+                                {msg.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                            <div className="rounded-2xl rounded-tl-none px-3 py-2 text-xs text-slate-800 bg-white border border-[#dce5d4] shadow-sm">
+                              <p className="leading-normal whitespace-pre-wrap font-normal text-[11px]">{msg.content}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                  })
+                )}
+                <div ref={chatBottomRef} />
+              </div>
+
+              {/* Input Form */}
+              <form
+                className="p-2 border-t border-slate-100 bg-white shrink-0"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!teamChatInput.trim()) return;
+                  try {
+                    await sendTeamChat(teamChatInput.trim());
+                    setTeamChatInput("");
+                  } catch {
+                    toast.error("Could not send message.");
+                  }
+                }}
+              >
+                <div className="relative flex items-center">
+                  <input
+                    value={teamChatInput}
+                    onChange={(e) => setTeamChatInput(e.target.value)}
+                    placeholder="Type your message..."
+                    className="w-full h-9 pl-3 pr-8 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#7d9b76] text-[11px] text-slate-800 bg-[#faf8f3]/30"
+                  />
+                  <button
+                    type="submit"
+                    className="absolute right-1 w-7 h-7 rounded-lg text-slate-400 hover:text-[#7d9b76] transition cursor-pointer flex items-center justify-center"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

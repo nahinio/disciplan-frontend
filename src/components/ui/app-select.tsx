@@ -49,6 +49,7 @@ type AppSelectProps = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  contentClassName?: string;
   size?: AppSelectSize;
 };
 
@@ -72,6 +73,7 @@ export function AppSelect({
   placeholder,
   disabled,
   className,
+  contentClassName,
   size = "md",
 }: AppSelectProps) {
   const selectValue = toSelectValue(value);
@@ -85,7 +87,7 @@ export function AppSelect({
       <SelectTrigger className={cn(sizeClasses[size], className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className={contentClassName}>
         {groups
           ? groups.map((group) => (
               <SelectGroup key={group.label}>

@@ -1,5 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "@tanstack/react-router";
+import { encodeCourseCode } from "@/lib/blog";
 import { Loader2, Sparkles, Clock, CalendarDays, MapPin, GraduationCap } from "lucide-react";
 import {
   useTasks,
@@ -140,6 +142,7 @@ function TaskRow({
   onProgress,
   onSkip,
   onToggle,
+  onUpdateTask,
 }: {
   task: UserTask;
   index: number;
@@ -149,7 +152,9 @@ function TaskRow({
   onProgress: (p: number) => void;
   onSkip: () => void;
   onToggle: () => void;
+  onUpdateTask?: (id: number, body: Record<string, any>) => Promise<void>;
 }) {
+  const [isEditingDeadline, setIsEditingDeadline] = useState(false);
   const isSlice = task.source === "event_slice";
   const isGrading = task.source === "grading_linked";
   const isExam = isStudent && isExamTask(task);
@@ -189,7 +194,24 @@ function TaskRow({
                 : "text-slate-800"
             )}
           >
-            {task.title}
+            {(task.source === "grading_linked" || task.title.startsWith("Grade:") || task.task_type_code === "grading") && task.course_code ? (
+              <Link
+                to="/courses/$courseCode/section"
+                params={{ courseCode: encodeCourseCode(task.course_code) }}
+                search={{
+                  section: task.section_key ? task.section_key.split("::")[1] || "" : "",
+                  tab: "students"
+                }}
+                className={cn(
+                  "hover:underline cursor-pointer",
+                  isSectionVariant ? "hover:text-[#7d9b76]" : "hover:text-rose-600"
+                )}
+              >
+                {task.title}
+              </Link>
+            ) : (
+              task.title
+            )}
           </p>
           {task.priority_code && (
             <span
@@ -239,12 +261,7 @@ function TaskRow({
               {task.course_code}
             </span>
           )}
-          {task.due_at && (
-            <span className="inline-flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {formatDue(task.due_at)}
-            </span>
-          )}
+
         </p>
         {task.attachment_url && (
           <a
@@ -258,6 +275,70 @@ function TaskRow({
         )}
         {isExam && task.course_code && (
           <ExamStudyLinks courseCode={task.course_code} sectionKey={task.section_key} />
+        )}
+        {!isStudent && task.source === "grading_linked" && (
+          <div className="mt-2.5">
+            {isEditingDeadline ? (
+              <div className="p-3 rounded-xl border border-rose-100 bg-rose-50/35 dark:border-rose-950/20 dark:bg-rose-950/5 flex flex-col gap-2 max-w-sm">
+                <span className="text-[9px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">
+                  {task.due_at ? "Change grading deadline" : "No deadline set. Add a grading deadline?"}
+                </span>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="datetime-local"
+                    defaultValue={task.due_at ? task.due_at.slice(0, 16) : ""}
+                    className="h-8 px-2 rounded-lg border border-rose-250 bg-white text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500 transition-colors"
+                    id={`deadline-input-${task.id}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const input = document.getElementById(`deadline-input-${task.id}`) as HTMLInputElement;
+                      if (input && input.value) {
+                        const dueAtIso = new Date(input.value).toISOString();
+                        if (onUpdateTask) {
+                          await onUpdateTask(task.id, { due_at: dueAtIso });
+                        }
+                        setIsEditingDeadline(false);
+                      }
+                    }}
+                    className="h-8 px-3 rounded-lg bg-rose text-white text-[10px] font-bold shadow-sm hover:bg-rose/90 transition-colors cursor-pointer"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDeadline(false)}
+                    className="h-8 px-2 rounded-lg border border-slate-200 text-slate-500 text-[10px] font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : task.due_at ? (
+              <div className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
+                <span className="font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider text-[9px]">Deadline:</span>
+                <span className="font-semibold">
+                  {new Date(task.due_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingDeadline(true)}
+                  className="text-[10px] font-bold text-rose hover:underline cursor-pointer"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditingDeadline(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-rose-200 bg-rose-50/30 hover:bg-rose-50 text-rose-700 dark:border-rose-900/30 dark:bg-rose-950/10 dark:hover:bg-rose-950/20 text-[10px] font-bold transition-colors cursor-pointer"
+              >
+                Prompt: Add Deadline
+              </button>
+            )}
+          </div>
         )}
       </div>
       <div className="shrink-0">
@@ -292,6 +373,7 @@ function TaskSection({
   isStudent,
   routineSlots = [],
   routineLoading = false,
+  onUpdateTask,
 }: {
   title: string;
   subtitle: string;
@@ -304,10 +386,11 @@ function TaskSection({
   emptyHint: string;
   updateProgress: (id: number, p: number, task?: UserTask) => Promise<void>;
   skipTask: (id: number) => Promise<void>;
-  toggleComplete: (id: number, completed: boolean) => Promise<void>;
+  toggleComplete: (id: number, completed: boolean, task?: UserTask) => Promise<void>;
   isStudent: boolean;
   routineSlots?: RoutineSlot[];
   routineLoading?: boolean;
+  onUpdateTask?: (id: number, body: Record<string, any>) => Promise<void>;
 }) {
   const completed = tasks.filter((t) => t.is_completed).length;
   const total = tasks.length;
@@ -373,6 +456,7 @@ function TaskSection({
                 onProgress={(p) => void updateProgress(task.id, p, task)}
                 onSkip={() => void skipTask(task.id)}
                 onToggle={() => void toggleComplete(task.id, !task.is_completed, task)}
+                onUpdateTask={onUpdateTask}
               />
             ))}
           </AnimatePresence>
@@ -398,6 +482,7 @@ export function TaskWorkspace({
     updateProgress,
     skipTask,
     toggleComplete,
+    updateTask,
   } = useTasks();
 
   const isSection = variant === "section";
@@ -411,8 +496,56 @@ export function TaskWorkspace({
     ? allTodayTasks.filter((t) => t.section_key === sectionKey)
     : allTodayTasks;
 
-  const plannerTasks = openTasksFirst(todayTasks.filter(isPlannerTask));
-  const scheduledTasks = openTasksFirst(todayTasks.filter((t) => !isPlannerTask(t)));
+  const [sortMethod, setSortMethod] = useState<"default" | "energy">("default");
+  const [energySlider, setEnergySlider] = useState<number>(2); // 1 = Low, 2 = Medium, 3 = High, 4 = Peak
+
+  const sortTasks = (tasksList: UserTask[]) => {
+    const open = tasksList.filter((t) => !t.is_completed);
+    const done = tasksList.filter((t) => t.is_completed);
+
+    const sortFn = (a: UserTask, b: UserTask) => {
+      if (sortMethod === "default") {
+        const priorityValue: Record<string, number> = {
+          urgent: 4,
+          high: 3,
+          medium: 2,
+          low: 1,
+        };
+        const valA = priorityValue[a.priority_code || "medium"] ?? 2;
+        const valB = priorityValue[b.priority_code || "medium"] ?? 2;
+        if (valB !== valA) return valB - valA;
+        const wA = a.live_weight ?? a.computed_weight ?? 0;
+        const wB = b.live_weight ?? b.computed_weight ?? 0;
+        if (wB !== wA) return wB - wA;
+        return a.id - b.id;
+      } else {
+        const effortA = a.estimated_effort_min;
+        const effortB = b.estimated_effort_min;
+
+        const hasEffortA = effortA !== null && effortA !== undefined;
+        const hasEffortB = effortB !== null && effortB !== undefined;
+
+        if (!hasEffortA && !hasEffortB) return 0;
+        if (!hasEffortA) return 1;
+        if (!hasEffortB) return -1;
+
+        if (energySlider <= 2) {
+          if (effortA !== effortB) return effortA! - effortB!;
+        } else {
+          if (effortA !== effortB) return effortB! - effortA!;
+        }
+        const wA = a.live_weight ?? a.computed_weight ?? 0;
+        const wB = b.live_weight ?? b.computed_weight ?? 0;
+        if (wB !== wA) return wB - wA;
+        return a.id - b.id;
+      }
+    };
+
+    return [...open.sort(sortFn), ...done.sort(sortFn)];
+  };
+
+  const plannerTasks = sortTasks(todayTasks.filter(isPlannerTask));
+  const scheduledTasks = sortTasks(todayTasks.filter((t) => !isPlannerTask(t)));
 
   const todayRoutine = useMemo(() => {
     const daySlots = slotsForDayIndex(routineSlots, new Date().getDay());
@@ -442,6 +575,63 @@ export function TaskWorkspace({
               : "Planner work rolls unfinished progress forward. Scheduled items stay on their day."}
           </p>
         </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-slate-250/50 bg-slate-50/40 backdrop-blur-sm shadow-[0_4px_20px_rgb(0,0,0,0.01)]">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sort by:</span>
+          <div className="inline-flex p-0.5 rounded-full bg-slate-100/80 border border-slate-200/40">
+            <button
+              onClick={() => setSortMethod("default")}
+              className={`text-[10px] font-bold uppercase tracking-wider py-1.5 px-3.5 rounded-full transition-all cursor-pointer ${
+                sortMethod === "default"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Priority (Default)
+            </button>
+            <button
+              onClick={() => setSortMethod("energy")}
+              className={`text-[10px] font-bold uppercase tracking-wider py-1.5 px-3.5 rounded-full transition-all cursor-pointer ${
+                sortMethod === "energy"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Energy Match
+            </button>
+          </div>
+        </div>
+
+        {sortMethod === "energy" && (
+          <div className="flex items-center gap-2 flex-1 sm:justify-end">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">
+              Energy Match:
+            </span>
+            <div className="inline-flex p-0.5 rounded-full bg-slate-100/80 border border-slate-200/40">
+              {([
+                { value: 1, label: "Low" },
+                { value: 2, label: "Medium" },
+                { value: 3, label: "High" },
+                { value: 4, label: "Peak" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setEnergySlider(opt.value)}
+                  className={`text-[10px] font-bold uppercase tracking-wider py-1 px-3.5 rounded-full transition-all cursor-pointer ${
+                    energySlider === opt.value
+                      ? "bg-rose-600 text-white shadow-sm font-semibold"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {todayError ? (
@@ -480,6 +670,7 @@ export function TaskWorkspace({
             skipTask={skipTask}
             toggleComplete={toggleComplete}
             isStudent={isStudent}
+            onUpdateTask={updateTask}
           />
           <TaskSection
             title="Scheduled"
@@ -501,6 +692,7 @@ export function TaskWorkspace({
             skipTask={skipTask}
             toggleComplete={toggleComplete}
             isStudent={isStudent}
+            onUpdateTask={updateTask}
           />
         </div>
       ) : (
@@ -509,9 +701,9 @@ export function TaskWorkspace({
           subtitle={
             isSection
               ? "Today's classes and section tasks"
-              : "Sorted by urgency and your energy level"
+              : "Sorted by priority and your energy level"
           }
-          tasks={openTasksFirst(todayTasks)}
+          tasks={sortTasks(todayTasks)}
           routineSlots={isSection ? todayRoutine : []}
           routineLoading={isSection ? routineLoading : false}
           variant={variant}
@@ -524,6 +716,7 @@ export function TaskWorkspace({
           skipTask={skipTask}
           toggleComplete={toggleComplete}
           isStudent={isStudent}
+          onUpdateTask={updateTask}
         />
       )}
     </section>

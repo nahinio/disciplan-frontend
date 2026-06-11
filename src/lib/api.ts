@@ -286,6 +286,11 @@ export const api = {
       `/dashboard/tasks/today${date ? `?date=${enc(date)}` : ""}`
     ),
 
+  getTasksPlan: (date?: string) =>
+    apiFetch<{ items: unknown[]; start_date: string }>(
+      `/dashboard/tasks/plan${date ? `?date=${enc(date)}` : ""}`
+    ),
+
   getTask: (id: number) => apiFetch<Record<string, unknown>>(`/dashboard/tasks/${id}`),
 
   generateLectureTasks: (date?: string) =>
@@ -688,6 +693,11 @@ export const api = {
 
   deleteSectionAnnouncement: (announcementId: number) =>
     apiFetch<{ message: string }>(`/sections/announcements/${announcementId}`, {
+      method: "DELETE",
+    }),
+
+  deleteSectionDoubt: (doubtId: number) =>
+    apiFetch<{ message: string }>(`/sections/doubts/${doubtId}`, {
       method: "DELETE",
     }),
 

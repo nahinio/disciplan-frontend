@@ -80,63 +80,86 @@ export function useChatGroup(
     setMessages([]);
     lastIdRef.current = 0;
     setWsConnected(false);
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+    
+    let currentSocket: WebSocket | null = null;
+    let reconnectTimer: NodeJS.Timeout | null = null;
+    let cancelled = false;
+
     if (!groupId) return;
 
     void poll();
 
     const token = getAccessToken();
     if (!token) {
-      const timer = setInterval(() => void poll(), 8000);
+      const timer = setInterval(() => void poll(), 4000);
       return () => clearInterval(timer);
     }
 
-    let cancelled = false;
-    const socket = new WebSocket(wsUrl(groupId, token));
-    wsRef.current = socket;
-
-    socket.onopen = () => {
-      if (!cancelled) setWsConnected(true);
-    };
-
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(String(event.data)) as {
-          type?: string;
-          item?: Record<string, unknown>;
-        };
-        if (data.type === "chat_message" && data.item) {
-          const mapped = mapMessage(
-            data.item,
-            meta.courseCode,
-            meta.section,
-            meta.facultyName
-          );
-          lastIdRef.current = Math.max(lastIdRef.current, Number(data.item.id));
-          setMessages((prev) => mergeMessages(prev, [mapped]));
+    function connect() {
+      if (cancelled) return;
+      if (currentSocket) {
+        try {
+          currentSocket.close();
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
       }
-    };
 
-    socket.onclose = () => {
-      if (!cancelled) setWsConnected(false);
-    };
+      currentSocket = new WebSocket(wsUrl(groupId!, token!));
+      wsRef.current = currentSocket;
 
-    socket.onerror = () => {
-      setWsConnected(false);
-    };
+      currentSocket.onopen = () => {
+        if (!cancelled) setWsConnected(true);
+      };
 
-    const fallback = setInterval(() => void poll(), 15000);
+      currentSocket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(String(event.data)) as {
+            type?: string;
+            item?: Record<string, unknown>;
+          };
+          if (data.type === "chat_message" && data.item) {
+            const mapped = mapMessage(
+              data.item,
+              meta.courseCode,
+              meta.section,
+              meta.facultyName
+            );
+            lastIdRef.current = Math.max(lastIdRef.current, Number(data.item.id));
+            setMessages((prev) => mergeMessages(prev, [mapped]));
+          }
+        } catch {
+          /* ignore */
+        }
+      };
+
+      currentSocket.onclose = () => {
+        if (!cancelled) {
+          setWsConnected(false);
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
+
+      currentSocket.onerror = () => {
+        if (!cancelled) setWsConnected(false);
+      };
+    }
+
+    connect();
+
+    const fallback = setInterval(() => void poll(), 4000);
 
     return () => {
       cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       clearInterval(fallback);
-      socket.close();
+      if (currentSocket) {
+        try {
+          currentSocket.close();
+        } catch {
+          /* ignore */
+        }
+      }
       wsRef.current = null;
     };
   }, [groupId, meta.courseCode, meta.section, meta.facultyName, poll]);
@@ -146,6 +169,7 @@ export function useChatGroup(
     const socket = wsRef.current;
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: "message", body }));
+      setTimeout(() => void poll(), 200);
       return;
     }
     await api.sendChatMessage(groupId, body);

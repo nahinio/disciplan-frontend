@@ -28,7 +28,7 @@ export type Task = {
   course: string;
   due: Date;
   start: Date;
-  urgency: "High" | "Med" | "Low";
+  priority: "High" | "Med" | "Low";
   completionPercent?: number;
 };
 
